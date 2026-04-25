@@ -46,27 +46,15 @@ git push origin sw
 
 ## 서비스 화면
 
-### 1. Introduce Service
-
 ![introduceservice](./src/assets/introduceservice.png)
-
-### 2. Login
 
 ![login](./src/assets/login.png)
 
-### 3. After Login
-
 ![afterlogin](./src/assets/afterlogin.png)
-
-### 4. Summarize
 
 ![summarize](./src/assets/summarize.png)
 
-### 5. Summarize 2
-
 ![summarize2](./src/assets/summarize2.png)
-
-### 6. Each Country
 
 ![eachcountry](./src/assets/eachcountry.png)
 
