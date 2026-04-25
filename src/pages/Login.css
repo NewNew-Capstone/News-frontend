@@ -1,0 +1,22 @@
+.login-page__input {
+  width: 100%;
+  border: 1px solid rgba(35, 35, 35, 0.46);
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+  font-size: 1rem;
+  padding: 1rem 0.95rem;
+  outline: none;
+}
+
+.login-page__input::placeholder {
+  color: #a5abb8;
+}
+
+.login-page__link-button {
+  border: none;
+  background: transparent;
+  color: #7aa0de;
+  cursor: pointer;
+  padding: 0;
+}

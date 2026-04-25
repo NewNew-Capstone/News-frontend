@@ -1,0 +1,54 @@
+.home-page {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  transition:
+    background 700ms ease,
+    box-shadow 700ms ease;
+}
+
+.home-page--hero {
+  background:
+    radial-gradient(circle at left 38%, rgba(162, 205, 237, 0.5), transparent 32%),
+    linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
+}
+
+.home-page--summary {
+  background:
+    radial-gradient(circle at left 35%, rgba(162, 205, 237, 0.4), transparent 30%),
+    linear-gradient(180deg, #f1f7ff 0%, #f9fcff 100%);
+}
+
+.home-page--compare {
+  background:
+    radial-gradient(circle at right 24%, rgba(196, 224, 244, 0.34), transparent 26%),
+    linear-gradient(180deg, #eef4ff 0%, #f8fbff 100%);
+}
+
+.home-page__navbar-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  padding: 28px 38px 0;
+  pointer-events: none;
+}
+
+.home-page__navbar-shell .site-navbar {
+  pointer-events: auto;
+}
+
+@media (max-width: 980px) {
+  .home-page__navbar-shell {
+    padding: 24px 20px 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-page__navbar-shell {
+    padding-top: 18px;
+  }
+}

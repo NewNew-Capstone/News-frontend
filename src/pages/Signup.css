@@ -1,0 +1,32 @@
+.signup-page .auth-page__card {
+  width: min(100%, 520px);
+}
+
+.signup-page__input {
+  width: 100%;
+  border: 1px solid rgba(35, 35, 35, 0.46);
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+  font-size: 1rem;
+  padding: 1rem 0.95rem;
+  outline: none;
+}
+
+.signup-page__input::placeholder {
+  color: #a5abb8;
+}
+
+.signup-page__error {
+  margin: 2px 0 0;
+  color: #d45b5b;
+  font-size: 0.92rem;
+}
+
+.signup-page__link-button {
+  border: none;
+  background: transparent;
+  color: #7aa0de;
+  cursor: pointer;
+  padding: 0;
+}

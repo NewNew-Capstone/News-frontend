@@ -1,0 +1,115 @@
+.summary-article-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(201, 216, 239, 0.7);
+  box-shadow: 0 14px 32px rgba(169, 187, 221, 0.12);
+}
+
+.summary-article-card__main {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.summary-article-card__bookmark {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  z-index: 1;
+  display: inline-grid;
+  place-items: start center;
+  width: 18px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: rgba(183, 192, 208, 0.78);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    background 180ms ease;
+}
+
+.summary-article-card__bookmark:hover {
+  transform: translateY(-1px);
+}
+
+.summary-article-card__bookmark--active {
+  background: #7da6dd;
+}
+
+.summary-article-card__bookmark-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.summary-article-card__image {
+  aspect-ratio: 16 / 9;
+  background: #e0e0e0;
+}
+
+.summary-article-card__image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.summary-article-card__image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: #dddddd;
+}
+
+.summary-article-card__image-placeholder span {
+  color: rgba(86, 86, 86, 0.55);
+  font-size: 0.9rem;
+}
+
+.summary-article-card__body {
+  padding: 14px 14px 16px;
+}
+
+.summary-article-card__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.summary-article-card__title-row h3 {
+  margin: 0;
+  color: #454545;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.summary-article-card__title-row span {
+  flex: 0 0 auto;
+  color: #6b8ec8;
+  font-size: 0.96rem;
+  font-weight: 600;
+}
+
+.summary-article-card__body p {
+  margin: 8px 0 0;
+  color: #b1aca6;
+  font-size: 0.98rem;
+}

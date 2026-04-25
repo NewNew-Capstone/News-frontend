@@ -1,121 +1,276 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from 'react'
+import Home from './pages/Home'
+import VideoSummary from './pages/VideoSummary'
+import VideoSummaryDetail from './pages/VideoSummaryDetail'
+import CountryCompare from './pages/CountryCompare'
+import Login from './pages/Login'
+import MyPage from './pages/MyPage'
+import OAuthCallback from './pages/OAuthCallback'
+import Signup from './pages/Signup'
+import {
+  clearAuthSession,
+  consumeAuthRedirect,
+  createAuthSession,
+  exchangeSocialCode,
+  getSocialLoginLabel,
+  getSocialProviderFromPath,
+  getStoredAuthSession,
+  persistAuthSession,
+} from './services/auth'
+
+const initialOAuthState = {
+  status: 'idle',
+  provider: null,
+  errorMessage: '',
+}
+
+function getRouteStateFromLocation() {
+  const socialProvider = getSocialProviderFromPath(window.location.pathname)
+
+  if (socialProvider) {
+    return {
+      name: 'oauth-callback',
+      provider: socialProvider,
+    }
+  }
+
+  const route = window.location.hash.replace('#', '')
+
+  if (route.startsWith('summary/video/')) {
+    return {
+      name: 'summary-detail',
+      videoId: decodeURIComponent(route.replace('summary/video/', '')),
+    }
+  }
+
+  if (
+    route === 'summary' ||
+    route === 'compare' ||
+    route === 'mypage' ||
+    route === 'login' ||
+    route === 'signup'
+  ) {
+    return { name: route }
+  }
+
+  return { name: 'home' }
+}
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [routeState, setRouteState] = useState(getRouteStateFromLocation)
+  const [authSession, setAuthSession] = useState(getStoredAuthSession)
+  const [oauthState, setOAuthState] = useState(initialOAuthState)
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+  const isLoggedIn = Boolean(authSession)
 
-      <div className="ticks"></div>
+  const completeAuth = (authResult, fallbackProfile = {}) => {
+    const nextSession = createAuthSession(authResult, fallbackProfile)
+    persistAuthSession(nextSession)
+    setAuthSession(nextSession)
+  }
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setRouteState(getRouteStateFromLocation())
+    }
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    window.addEventListener('hashchange', handleLocationChange)
+    window.addEventListener('popstate', handleLocationChange)
+
+    return () => {
+      window.removeEventListener('hashchange', handleLocationChange)
+      window.removeEventListener('popstate', handleLocationChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (routeState.name !== 'oauth-callback') {
+      if (oauthState.status !== 'idle') {
+        setOAuthState(initialOAuthState)
+      }
+
+      return undefined
+    }
+
+    let isCancelled = false
+
+    const handleOAuthCallback = async () => {
+      const provider = routeState.provider
+      const providerLabel = getSocialLoginLabel(provider)
+
+      setOAuthState({
+        status: 'loading',
+        provider,
+        errorMessage: '',
+      })
+
+      try {
+        const searchParams = new URLSearchParams(window.location.search)
+        const authorizationError = searchParams.get('error')
+        const code = searchParams.get('code') || ''
+
+        if (authorizationError) {
+          throw new Error(`${providerLabel} 로그인 인증이 취소되었거나 실패했습니다.`)
+        }
+
+        if (!code.trim()) {
+          throw new Error('로그인에 필요한 인증 코드를 찾지 못했습니다.')
+        }
+
+        const authResult = await exchangeSocialCode(provider, code)
+
+        if (isCancelled) {
+          return
+        }
+
+        completeAuth(authResult)
+
+        const redirectHash = consumeAuthRedirect()
+        const nextHash =
+          redirectHash && redirectHash.startsWith('#') ? redirectHash : '#home'
+
+        window.history.replaceState({}, '', `/${nextHash}`)
+        setOAuthState(initialOAuthState)
+        setRouteState(getRouteStateFromLocation())
+      } catch (error) {
+        if (isCancelled) {
+          return
+        }
+
+        setOAuthState({
+          status: 'error',
+          provider,
+          errorMessage:
+            error instanceof Error
+              ? error.message
+              : `${providerLabel} 로그인 중 오류가 발생했습니다.`,
+        })
+      }
+    }
+
+    handleOAuthCallback()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [routeState])
+
+  const handleAuthClick = () => {}
+
+  const handleAuthSuccess = (authResult, fallbackProfile) => {
+    completeAuth(authResult, fallbackProfile)
+    window.location.hash = '#home'
+  }
+
+  const handleInlineAuthSuccess = (authResult, fallbackProfile) => {
+    completeAuth(authResult, fallbackProfile)
+  }
+
+  const handleMoveToSignup = () => {
+    window.location.hash = '#signup'
+  }
+
+  const handleMoveToLogin = () => {
+    window.location.hash = '#login'
+  }
+
+  const handleLogout = () => {
+    clearAuthSession()
+    setAuthSession(null)
+    window.location.hash = '#home'
+  }
+
+  if (routeState.name === 'oauth-callback') {
+    return (
+      <OAuthCallback
+        provider={routeState.provider}
+        status={oauthState.status}
+        errorMessage={oauthState.errorMessage}
+      />
+    )
+  }
+
+  if (routeState.name === 'summary') {
+    return (
+      <VideoSummary
+        isLoggedIn={isLoggedIn}
+        onAuthClick={handleAuthClick}
+        onLoginSuccess={handleInlineAuthSuccess}
+        onMoveToSignup={handleMoveToSignup}
+      />
+    )
+  }
+
+  if (routeState.name === 'summary-detail') {
+    if (!isLoggedIn) {
+      return (
+        <Login
+          isLoggedIn={isLoggedIn}
+          onAuthClick={handleAuthClick}
+          onLoginSuccess={handleAuthSuccess}
+          onMoveToSignup={handleMoveToSignup}
+        />
+      )
+    }
+
+    return (
+      <VideoSummaryDetail
+        isLoggedIn={isLoggedIn}
+        onAuthClick={handleAuthClick}
+        videoId={routeState.videoId}
+      />
+    )
+  }
+
+  if (routeState.name === 'compare') {
+    return <CountryCompare isLoggedIn={isLoggedIn} onAuthClick={handleAuthClick} />
+  }
+
+  if (routeState.name === 'mypage') {
+    if (!isLoggedIn) {
+      return (
+        <Login
+          isLoggedIn={isLoggedIn}
+          onAuthClick={handleAuthClick}
+          onLoginSuccess={handleAuthSuccess}
+          onMoveToSignup={handleMoveToSignup}
+        />
+      )
+    }
+
+    return (
+      <MyPage
+        isLoggedIn={isLoggedIn}
+        onAuthClick={handleAuthClick}
+        onLogout={handleLogout}
+        user={authSession?.user}
+      />
+    )
+  }
+
+  if (routeState.name === 'login') {
+    return (
+      <Login
+        isLoggedIn={isLoggedIn}
+        onAuthClick={handleAuthClick}
+        onLoginSuccess={handleAuthSuccess}
+        onMoveToSignup={handleMoveToSignup}
+      />
+    )
+  }
+
+  if (routeState.name === 'signup') {
+    return (
+      <Signup
+        isLoggedIn={isLoggedIn}
+        onAuthClick={handleAuthClick}
+        onSignupSuccess={handleAuthSuccess}
+        onMoveToLogin={handleMoveToLogin}
+      />
+    )
+  }
+
+  return <Home isLoggedIn={isLoggedIn} onAuthClick={handleAuthClick} />
 }
 
 export default App
