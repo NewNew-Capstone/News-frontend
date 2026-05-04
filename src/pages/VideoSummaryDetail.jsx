@@ -16,7 +16,7 @@ import './VideoSummaryDetail.css'
 
 const ANALYSIS_POLL_ATTEMPTS = 8
 const ANALYSIS_POLL_INTERVAL_MS = 2_500
-const MAX_RECOMMENDATIONS = 6
+const MAX_RECOMMENDATIONS = 8
 const MAX_COMMENTS = 5
 const MAX_KEYWORDS = 10
 const MAX_SENTENCE_LABELS = 8
@@ -522,6 +522,86 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
 
   const keywordItems = dedupeKeywords(analysisResult?.keywords || [])
   const sentenceLabelItems = dedupeSentenceLabels(analysisResult?.sentenceLabels || [])
+  const isAnalysisView = Boolean(analysisResult)
+  const analysisToneLabel = analysisResult?.toneLabel || '분석 완료'
+  const analysisSummaryText =
+    summaryText || '영상 분석이 완료되면 여기에서 요약된 내용을 확인할 수 있습니다.'
+  const analysisDescriptionText =
+    analysisResult?.evidenceSummary ||
+    videoDetail?.description ||
+    '영상 설명이 아직 준비되지 않았습니다.'
+  const analysisOverviewBars = [
+    {
+      key: 'opinion',
+      label: '의견성',
+      value: analysisResult?.opinionScore ?? null,
+      toneClassName: 'video-summary-detail-page__analysis-bar-fill--blue',
+    },
+    {
+      key: 'emotion',
+      label: '감정성',
+      value: analysisResult?.emotionScore ?? null,
+      toneClassName: 'video-summary-detail-page__analysis-bar-fill--amber',
+    },
+    {
+      key: 'anonymous-source',
+      label: '출처 불명',
+      value: analysisResult?.anonymousSourceScore ?? null,
+      toneClassName: 'video-summary-detail-page__analysis-bar-fill--green',
+    },
+  ]
+  const analysisKeywordItems = keywordItems.slice(0, 8)
+  const analysisHighlightItems = sentenceLabelItems.slice(0, 4)
+
+  const renderRecommendationCard = (recommendation) => (
+    <article
+      key={recommendation.id}
+      className="video-summary-detail-page__recommendation-card"
+    >
+      <button
+        type="button"
+        className={`video-summary-detail-page__recommendation-bookmark ${
+          recommendation.scrapped
+            ? 'video-summary-detail-page__recommendation-bookmark--active'
+            : ''
+        }`}
+        onClick={(event) => handleToggleRecommendationScrap(event, recommendation)}
+        disabled={pendingRecommendationIds.includes(recommendation.id)}
+        aria-label={recommendation.scrapped ? '스크랩 해제' : '스크랩 저장'}
+        aria-pressed={recommendation.scrapped}
+        title={recommendation.scrapped ? '스크랩 해제' : '스크랩'}
+      >
+        <BookmarkIcon />
+      </button>
+
+      <button
+        type="button"
+        className="video-summary-detail-page__recommendation-main"
+        onClick={() => handleOpenRecommendation(recommendation.youtubeVideoId)}
+      >
+        <div className="video-summary-detail-page__recommendation-thumb">
+          {recommendation.thumbnailUrl ? (
+            <img src={recommendation.thumbnailUrl} alt={recommendation.title} />
+          ) : (
+            <div className="video-summary-detail-page__recommendation-placeholder" />
+          )}
+        </div>
+
+        <div className="video-summary-detail-page__recommendation-body">
+          <strong>{recommendation.title}</strong>
+          <p>{recommendation.channelName}</p>
+          <span>
+            {[
+              formatCount(recommendation.viewCount, '조회수'),
+              formatDateLabel(recommendation.publishedAt, '게시일 없음'),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+        </div>
+      </button>
+    </article>
+  )
 
   const syncScrapState = (scrapLookup, mainYoutubeVideoId = videoDetail?.youtubeVideoId || '') => {
     const mainScrapItem = mainYoutubeVideoId ? scrapLookup[mainYoutubeVideoId] || null : null
@@ -865,9 +945,13 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
           ) : pageErrorMessage ? (
             <p className="video-summary-detail-page__status">{pageErrorMessage}</p>
           ) : videoDetail ? (
-            <article className="video-summary-detail-page__card">
+            <article
+              className={`video-summary-detail-page__card ${
+                isAnalysisView ? 'video-summary-detail-page__card--analysis' : ''
+              }`}
+            >
               <header className="video-summary-detail-page__section-header">
-                <h2>{videoDetail.channelName}</h2>
+                <h2>{isAnalysisView ? '영상 분석 결과' : videoDetail.channelName}</h2>
 
                 <div className="video-summary-detail-page__header-actions">
                   <button
@@ -905,6 +989,220 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
                 <p className="video-summary-detail-page__status">{actionErrorMessage}</p>
               ) : null}
 
+              {isAnalysisView ? (
+                <div className="video-summary-detail-page__analysis-view">
+                  <div className="video-summary-detail-page__analysis-hero-grid">
+                    <section className="video-summary-detail-page__analysis-primary-column">
+                      <div className="video-summary-detail-page__hero video-summary-detail-page__hero--analysis">
+                        <a
+                          className="video-summary-detail-page__hero-link"
+                          href={videoDetail.originalUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`${videoDetail.title} 원본 영상 열기`}
+                        >
+                          {videoDetail.thumbnailUrl ? (
+                            <img src={videoDetail.thumbnailUrl} alt={videoDetail.title} />
+                          ) : (
+                            <div className="video-summary-detail-page__hero-placeholder">
+                              <span>NNW VIDEO</span>
+                            </div>
+                          )}
+
+                          <span className="video-summary-detail-page__hero-play">
+                            <PlayIcon />
+                          </span>
+                        </a>
+                      </div>
+
+                      <article className="video-summary-detail-page__analysis-caption-card">
+                        <h3>{videoDetail.title}</h3>
+                        <p>{analysisDescriptionText}</p>
+                      </article>
+                    </section>
+
+                    <aside className="video-summary-detail-page__analysis-sidepanel">
+                      <article className="video-summary-detail-page__analysis-compact-card">
+                        <div className="video-summary-detail-page__analysis-compact-header">
+                          <h3>영상 요약</h3>
+                          <span className="video-summary-detail-page__analysis-pill">
+                            {analysisToneLabel}
+                          </span>
+                        </div>
+                        <p className="video-summary-detail-page__analysis-compact-text">
+                          {analysisSummaryText}
+                        </p>
+                      </article>
+
+                      <article className="video-summary-detail-page__analysis-compact-card">
+                        <div className="video-summary-detail-page__analysis-compact-header">
+                          <h3>편향 유형 분류</h3>
+                        </div>
+
+                        <div className="video-summary-detail-page__analysis-bar-list">
+                          {analysisOverviewBars.map((bar) => {
+                            const percentage = clampPercentage(bar.value)
+
+                            return (
+                              <div
+                                key={bar.key}
+                                className="video-summary-detail-page__analysis-bar-item"
+                              >
+                                <div className="video-summary-detail-page__analysis-bar-meta">
+                                  <strong>{bar.label}</strong>
+                                  <span>{formatScorePercent(bar.value)}</span>
+                                </div>
+                                <div className="video-summary-detail-page__analysis-bar-track">
+                                  <span
+                                    className={`video-summary-detail-page__analysis-bar-fill ${bar.toneClassName}`}
+                                    style={{ width: `${percentage ?? 0}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </article>
+
+                      <article className="video-summary-detail-page__analysis-compact-card">
+                        <div className="video-summary-detail-page__analysis-compact-header">
+                          <h3>편향 단어 보기</h3>
+                        </div>
+
+                        {analysisKeywordItems.length ? (
+                          <div className="video-summary-detail-page__analysis-keyword-cloud">
+                            {analysisKeywordItems.map((keyword) => (
+                              <span
+                                key={`${keyword.keywordType}-${keyword.keywordText}`}
+                                className="video-summary-detail-page__analysis-keyword-chip"
+                              >
+                                {keyword.keywordText}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="video-summary-detail-page__analysis-empty">
+                            아직 표시할 편향 단어가 없습니다.
+                          </p>
+                        )}
+                      </article>
+                    </aside>
+                  </div>
+
+                  {analysisErrorMessage ? (
+                    <p className="video-summary-detail-page__summary-error">
+                      {analysisErrorMessage}
+                    </p>
+                  ) : null}
+
+                  <div className="video-summary-detail-page__analysis-detail-layout">
+                    <div className="video-summary-detail-page__analysis-detail-stack">
+                      {analysisResult?.perspectiveSummary ? (
+                        <article className="video-summary-detail-page__analysis-detail-card">
+                          <div className="video-summary-detail-page__analysis-detail-head">
+                            <h3>관점 요약</h3>
+                          </div>
+                          <p>{analysisResult.perspectiveSummary}</p>
+                        </article>
+                      ) : null}
+
+                      {analysisResult?.evidenceSummary ? (
+                        <article className="video-summary-detail-page__analysis-detail-card">
+                          <div className="video-summary-detail-page__analysis-detail-head">
+                            <h3>근거 요약</h3>
+                          </div>
+                          <p>{analysisResult.evidenceSummary}</p>
+                        </article>
+                      ) : null}
+                    </div>
+
+                    <div className="video-summary-detail-page__analysis-detail-stack">
+                      <article className="video-summary-detail-page__analysis-detail-card">
+                        <div className="video-summary-detail-page__analysis-detail-head">
+                          <h3>세부 분석 지표</h3>
+                          <span>{scoreCards.length}개 지표</span>
+                        </div>
+
+                        <div className="video-summary-detail-page__analysis-score-grid video-summary-detail-page__analysis-score-grid--detail">
+                          {scoreCards.map((scoreCard) => {
+                            const percentage = clampPercentage(scoreCard.value)
+
+                            return (
+                              <article
+                                key={scoreCard.key}
+                                className="video-summary-detail-page__analysis-score-card"
+                              >
+                                <div className="video-summary-detail-page__analysis-score-head">
+                                  <strong>{scoreCard.label}</strong>
+                                  <span>{formatScorePercent(scoreCard.value)}</span>
+                                </div>
+                                <div className="video-summary-detail-page__analysis-score-track">
+                                  <span
+                                    className="video-summary-detail-page__analysis-score-fill"
+                                    style={{ width: `${percentage ?? 0}%` }}
+                                  />
+                                </div>
+                                <p>{scoreCard.description}</p>
+                              </article>
+                            )
+                          })}
+                        </div>
+                      </article>
+
+                      <article className="video-summary-detail-page__analysis-detail-card">
+                        <div className="video-summary-detail-page__analysis-detail-head">
+                          <h3>하이라이트 포인트</h3>
+                          <span>{analysisHighlightItems.length}개 문장</span>
+                        </div>
+
+                        {analysisHighlightItems.length ? (
+                          <div className="video-summary-detail-page__analysis-label-list">
+                            {analysisHighlightItems.map((label) => (
+                              <article
+                                key={label.id}
+                                className="video-summary-detail-page__analysis-label-item"
+                              >
+                                <div>
+                                  <strong>{formatSentenceLabelType(label.labelType)}</strong>
+                                  <p>문장 ID {label.contentSentenceId ?? '-'} 에서 감지됐습니다.</p>
+                                </div>
+                                <span>{formatScorePercent(label.score)}</span>
+                              </article>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="video-summary-detail-page__analysis-empty">
+                            아직 표시할 하이라이트 포인트가 없습니다.
+                          </p>
+                        )}
+                      </article>
+                    </div>
+                  </div>
+
+                  <section className="video-summary-detail-page__analysis-recommendations">
+                    <header className="video-summary-detail-page__analysis-recommendations-header">
+                      <h3>유사한 영상 추천</h3>
+                      <span>{recommendedVideos.length}개</span>
+                    </header>
+
+                    {recommendationsErrorMessage ? (
+                      <p className="video-summary-detail-page__status">
+                        {recommendationsErrorMessage}
+                      </p>
+                    ) : recommendedVideos.length ? (
+                      <div className="video-summary-detail-page__recommendation-list video-summary-detail-page__recommendation-list--grid">
+                        {recommendedVideos.map(renderRecommendationCard)}
+                      </div>
+                    ) : (
+                      <p className="video-summary-detail-page__empty">
+                        지금은 보여드릴 유사한 영상이 없습니다.
+                      </p>
+                    )}
+                  </section>
+                </div>
+              ) : null}
+
+              {!isAnalysisView ? (
               <div className="video-summary-detail-page__content-layout">
                 <section className="video-summary-detail-page__main-content">
                   <div className="video-summary-detail-page__hero">
@@ -1234,6 +1532,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
                   )}
                 </aside>
               </div>
+              ) : null}
             </article>
           ) : null}
         </section>
