@@ -1,11 +1,24 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css');
 
 :root {
-  --bg: #f7faff;
-  --text: #61708f;
-  --text-strong: #111827;
+  /* Toss-like color system */
+  --blue:          #3182F6;
+  --blue-dark:     #1b6ee8;
+  --blue-light:    #ebf3ff;
+  --blue-dim:      #cce0ff;
+
+  --text:          #4e5968;
+  --text-strong:   #191f28;
+  --text-medium:   #6b7785;
+  --text-light:    #b0bac6;
+
+  --bg:            #f4f8ff;
+  --surface:       #ffffff;
+  --border:        #e5e8eb;
+  --border-light:  #f2f4f6;
+
   --display: 'Pretendard Variable', 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
-  --body: 'Pretendard Variable', 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  --body:    'Pretendard Variable', 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
 
   font-family: var(--body);
   line-height: 1.5;
@@ -32,9 +45,7 @@ body,
 body {
   margin: 0;
   overflow: hidden;
-  background:
-    radial-gradient(circle at top left, rgba(169, 193, 241, 0.22), transparent 28%),
-    #f8fbff;
+  background: var(--bg);
 }
 
 * {
@@ -55,16 +66,12 @@ img {
   width: 100%;
   max-width: 100%;
   margin: 0;
-  background: rgba(255, 255, 255, 0.55);
 }
 
-h1,
-h2,
-p {
+h1, h2, p {
   margin: 0;
 }
 
-h1,
-h2 {
+h1, h2 {
   color: var(--text-strong);
 }

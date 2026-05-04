@@ -1,0 +1,96 @@
+.mascot {
+  display: inline-block;
+  width: 100%;
+  max-width: 300px;
+}
+
+.mascot__svg {
+  width: 100%;
+  height: auto;
+  filter:
+    drop-shadow(0 28px 52px rgba(79, 150, 255, 0.38))
+    drop-shadow(0 0 24px rgba(107, 163, 255, 0.18));
+}
+
+/* Floating body animation */
+.mascot__float {
+  animation: mascotFloat 3.4s ease-in-out infinite;
+}
+
+/* Shadow shrinks when mascot rises */
+.mascot__shadow {
+  animation: mascotShadow 3.4s ease-in-out infinite;
+  transform-origin: 80px 184px;
+}
+
+/* Full eye blink — animate the entire eye group so whites/iris/pupil all squish together */
+.mascot__eye-left,
+.mascot__eye-right {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mascotBlink 5.2s ease-in-out infinite;
+}
+
+/* Tiny offset so both eyes don't blink in perfect robotic sync */
+.mascot__eye-right {
+  animation-delay: 40ms;
+}
+
+/* News badge bobs slightly offset from body */
+.mascot__badge {
+  animation: mascotBadge 3.4s ease-in-out infinite;
+}
+
+/* Sparkle particles */
+.mascot__sparkle {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.mascot__sparkle--1 { animation: mascotSparkle 2.6s ease-in-out infinite; }
+.mascot__sparkle--2 { animation: mascotSparkle 3.1s ease-in-out infinite 0.45s; }
+.mascot__sparkle--3 { animation: mascotSparkle 2.8s ease-in-out infinite 0.9s; }
+.mascot__sparkle--4 { animation: mascotSparkle 3.4s ease-in-out infinite 1.3s; }
+.mascot__sparkle--5 { animation: mascotSparkle 2.5s ease-in-out infinite 0.65s; }
+.mascot__sparkle--6 { animation: mascotSparkle 3.0s ease-in-out infinite 1.8s; }
+
+/* ── Keyframes ── */
+
+@keyframes mascotFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-14px); }
+}
+
+@keyframes mascotShadow {
+  0%, 100% { transform: scaleX(1);    opacity: 0.10; }
+  50%       { transform: scaleX(0.65); opacity: 0.05; }
+}
+
+/* Whole-eye squish — now looks like a real eyelid closing */
+@keyframes mascotBlink {
+  0%, 88%, 100% { transform: scaleY(1); }
+  93%            { transform: scaleY(0.07); }
+  96%            { transform: scaleY(1); }
+  98%            { transform: scaleY(0.1); }
+}
+
+@keyframes mascotBadge {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50%       { transform: translateY(-10px) rotate(2deg); }
+}
+
+@keyframes mascotSparkle {
+  0%, 100% { transform: scale(1) rotate(0deg);    opacity: 0.22; }
+  40%       { transform: scale(1.6) rotate(18deg); opacity: 0.75; }
+  70%       { transform: scale(0.8) rotate(-8deg); opacity: 0.38; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot__float,
+  .mascot__shadow,
+  .mascot__eye-left,
+  .mascot__eye-right,
+  .mascot__badge,
+  .mascot__sparkle {
+    animation: none;
+  }
+}

@@ -32,6 +32,7 @@ function AuthShell({
           serviceHref="#home"
           isLoggedIn={isLoggedIn}
           onAuthClick={onAuthClick}
+          maxWidth="1120px"
         />
 
         <div className="auth-page__card-wrap">

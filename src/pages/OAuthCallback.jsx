@@ -14,6 +14,7 @@ function OAuthCallback({ provider, status = 'loading', errorMessage = '' }) {
           serviceHref="#home"
           isLoggedIn={false}
           onAuthClick={() => {}}
+          maxWidth="1120px"
         />
 
         <div className="oauth-callback-page__card-wrap">

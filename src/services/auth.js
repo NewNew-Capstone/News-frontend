@@ -5,7 +5,12 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL)
   '',
 )
 
-const APP_ORIGIN = (import.meta.env.VITE_APP_ORIGIN || 'http://localhost:3000').replace(
+const FALLBACK_APP_ORIGIN =
+  typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'http://localhost:3000'
+
+const APP_ORIGIN = (import.meta.env.VITE_APP_ORIGIN || FALLBACK_APP_ORIGIN).replace(
   /\/$/,
   '',
 )
@@ -88,6 +93,20 @@ function extractErrorMessage(payload) {
   )
 }
 
+function createAuthHeaders(accessToken) {
+  const normalizedToken = normalizeTokenValue(accessToken)
+  const headers = {
+    Accept: 'application/json',
+  }
+
+  if (normalizedToken) {
+    headers.Authorization = `Bearer ${normalizedToken}`
+    headers.AccessToken = normalizedToken
+  }
+
+  return headers
+}
+
 async function postJson(path, body, fallbackErrorMessage) {
   try {
     const response = await fetch(buildUrl(path), {
@@ -123,6 +142,87 @@ async function postJson(path, body, fallbackErrorMessage) {
   }
 }
 
+async function getJson(path, accessToken, fallbackErrorMessage) {
+  try {
+    const response = await fetch(buildUrl(path), {
+      method: 'GET',
+      headers: createAuthHeaders(accessToken),
+    })
+
+    const payload = await parseResponse(response)
+
+    if (!response.ok) {
+      const error = new Error(extractErrorMessage(payload) || fallbackErrorMessage)
+      error.status = response.status
+      throw error
+    }
+
+    return payload
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error('프로필 정보를 불러오는 중 서버에 연결할 수 없습니다.')
+    }
+
+    throw error
+  }
+}
+
+async function patchJson(path, body, accessToken, fallbackErrorMessage) {
+  try {
+    const response = await fetch(buildUrl(path), {
+      method: 'PATCH',
+      headers: {
+        ...createAuthHeaders(accessToken),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    })
+
+    const payload = await parseResponse(response)
+
+    if (!response.ok) {
+      const error = new Error(extractErrorMessage(payload) || fallbackErrorMessage)
+      error.status = response.status
+      throw error
+    }
+
+    return payload
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error('프로필 수정 중 서버에 연결할 수 없습니다.')
+    }
+
+    throw error
+  }
+}
+
+async function deleteJson(path, accessToken, fallbackErrorMessage) {
+  try {
+    const response = await fetch(buildUrl(path), {
+      method: 'DELETE',
+      headers: createAuthHeaders(accessToken),
+      credentials: 'include',
+    })
+
+    const payload = await parseResponse(response)
+
+    if (!response.ok) {
+      const error = new Error(extractErrorMessage(payload) || fallbackErrorMessage)
+      error.status = response.status
+      throw error
+    }
+
+    return payload
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error('회원 탈퇴 처리 중 서버에 연결할 수 없습니다.')
+    }
+
+    throw error
+  }
+}
+
 function collectAuthSources(authResult) {
   return [
     authResult,
@@ -148,6 +248,69 @@ function findFirstValue(sources, keys) {
   return null
 }
 
+function extractResponseBody(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return payload
+  }
+
+  if ('body' in payload) {
+    return payload.body
+  }
+
+  if ('data' in payload) {
+    return payload.data
+  }
+
+  if ('result' in payload) {
+    return payload.result
+  }
+
+  return payload
+}
+
+function normalizeUserProfile(source, fallbackProfile = {}) {
+  const sources = collectAuthSources(source)
+  const responseBody = extractResponseBody(source)
+  const nestedUser =
+    findFirstValue(sources, ['user', 'member', 'account', 'profile']) || responseBody || {}
+
+  return {
+    userId:
+      nestedUser.userId ||
+      nestedUser.id ||
+      findFirstValue(sources, ['userId', 'memberId', 'id']) ||
+      fallbackProfile.userId ||
+      null,
+    email:
+      nestedUser.email ||
+      findFirstValue(sources, ['email', 'loginId', 'username']) ||
+      fallbackProfile.email ||
+      '',
+    name: nestedUser.name || findFirstValue(sources, ['name']) || fallbackProfile.name || '',
+    nickname:
+      nestedUser.nickname ||
+      findFirstValue(sources, ['nickname', 'nickName']) ||
+      fallbackProfile.nickname ||
+      '',
+    birth:
+      nestedUser.birth ||
+      findFirstValue(sources, ['birth', 'birthday']) ||
+      fallbackProfile.birth ||
+      '',
+    phone:
+      nestedUser.phone ||
+      findFirstValue(sources, ['phone', 'phoneNumber']) ||
+      fallbackProfile.phone ||
+      '',
+    profileImageKey:
+      nestedUser.profileImageKey ||
+      nestedUser.profileImageUrl ||
+      findFirstValue(sources, ['profileImageKey', 'profileImageUrl', 'imageUrl']) ||
+      fallbackProfile.profileImageKey ||
+      null,
+  }
+}
+
 function normalizeTokenValue(token) {
   if (typeof token !== 'string') {
     return token
@@ -164,6 +327,10 @@ function normalizeHashRedirect(hashValue) {
   }
 
   return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+}
+
+export function getAccessToken() {
+  return normalizeTokenValue(getStoredAuthSession()?.token || null)
 }
 
 export function login(payload) {
@@ -279,8 +446,6 @@ export function exchangeSocialCode(provider, code) {
 export function createAuthSession(authResult, fallbackProfile = {}) {
   const sources = collectAuthSources(authResult)
   const responseHeaders = authResult?.__responseHeaders || {}
-  const nestedUser =
-    findFirstValue(sources, ['user', 'member', 'account', 'profile']) || {}
 
   return {
     token: normalizeTokenValue(
@@ -315,32 +480,53 @@ export function createAuthSession(authResult, fallbackProfile = {}) {
       'refresh_token_expires_at',
       'refreshTokenExpiresAt',
     ]),
-    user: {
-      email:
-        nestedUser.email ||
-        findFirstValue(sources, ['email', 'loginId', 'username']) ||
-        fallbackProfile.email ||
-        '',
-      name: nestedUser.name || findFirstValue(sources, ['name']) || fallbackProfile.name || '',
-      nickname:
-        nestedUser.nickname ||
-        findFirstValue(sources, ['nickname', 'nickName']) ||
-        fallbackProfile.nickname ||
-        '',
-      birth:
-        nestedUser.birth ||
-        findFirstValue(sources, ['birth', 'birthday']) ||
-        fallbackProfile.birth ||
-        '',
-      phone:
-        nestedUser.phone ||
-        findFirstValue(sources, ['phone', 'phoneNumber']) ||
-        fallbackProfile.phone ||
-        '',
-    },
+    user: normalizeUserProfile(authResult, fallbackProfile),
     raw: authResult,
     loggedInAt: new Date().toISOString(),
   }
+}
+
+export async function fetchMyProfile(accessToken = getAccessToken()) {
+  const token = normalizeTokenValue(accessToken)
+
+  if (!token) {
+    throw new Error('프로필 정보를 불러오려면 다시 로그인해 주세요.')
+  }
+
+  const payload = await getJson(
+    '/api/v1/users/me',
+    token,
+    '프로필 정보를 불러오지 못했습니다.',
+  )
+
+  return normalizeUserProfile(payload)
+}
+
+export async function updateMyProfile(profileInput, accessToken = getAccessToken()) {
+  const token = normalizeTokenValue(accessToken)
+
+  if (!token) {
+    throw new Error('프로필을 수정하려면 다시 로그인해 주세요.')
+  }
+
+  const payload = await patchJson(
+    '/api/v1/users/me',
+    profileInput,
+    token,
+    '프로필 수정에 실패했습니다.',
+  )
+
+  return normalizeUserProfile(payload)
+}
+
+export async function deleteMyAccount(accessToken = getAccessToken()) {
+  const token = normalizeTokenValue(accessToken)
+
+  if (!token) {
+    throw new Error('회원 탈퇴를 진행하려면 다시 로그인해 주세요.')
+  }
+
+  return deleteJson('/api/v1/users/me', token, '회원 탈퇴 처리에 실패했습니다.')
 }
 
 export function getStoredAuthSession() {

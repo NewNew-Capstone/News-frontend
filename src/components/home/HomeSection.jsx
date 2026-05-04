@@ -1,3 +1,4 @@
+import Mascot from '../Mascot'
 import './HomeSection.css'
 
 const CUBE_FACE_NAMES = ['front', 'back', 'right', 'left', 'top', 'bottom']
@@ -35,83 +36,112 @@ function HomeSection({ section, isActive, isSimple, nextHref, sectionRef }) {
       }`}
     >
       <div className="home-section__shell">
-        <div className="home-section__content">
-          <div className={`home-section__copy ${isSimple ? 'home-section__copy--simple' : ''}`}>
-            {!isSimple && section.eyebrow ? (
-              <p className="home-section__eyebrow">{section.eyebrow}</p>
-            ) : null}
-            <h1 className="home-section__title">
-              {section.titleLines.map((line, lineIndex) => (
-                <span
-                  key={line}
-                  className={
-                    lineIndex === section.accentLine
-                      ? 'home-section__title-line home-section__title-line--accent'
-                      : 'home-section__title-line'
-                  }
-                >
-                  {line}
-                </span>
-              ))}
-            </h1>
+        {isSimple ? (
+          <div className="home-section__hero-layout">
+            <div className="home-section__hero-copy">
+              <h1 className="home-section__title">
+                {section.titleLines.map((line, lineIndex) => (
+                  <span
+                    key={line}
+                    className={
+                      lineIndex === section.accentLine
+                        ? 'home-section__title-line home-section__title-line--accent'
+                        : 'home-section__title-line'
+                    }
+                  >
+                    {line}
+                  </span>
+                ))}
+              </h1>
+            </div>
 
-            {!isSimple && (
-              <>
-                <p className="home-section__description">{section.description}</p>
-
-                <div className="home-section__actions">
-                  <a className="home-section__primary-button" href={section.primaryHref}>
-                    {section.primaryLabel}
-                  </a>
-                  <a className="home-section__secondary-button" href={section.secondaryHref}>
-                    {section.secondaryLabel}
-                  </a>
-                </div>
-              </>
-            )}
-          </div>
-
-          {!isSimple && section.card ? (
-            <article className="home-section__preview-card">
-              <div className="home-section__preview-media">
-                <div className="home-section__preview-cube-stage" aria-hidden="true">
-                  <div className="home-section__preview-cube">
-                    {previewFaces.map((face) => (
-                      <div
-                        key={`${section.card.heading}-${face.faceName}`}
-                        className={`home-section__preview-face home-section__preview-face--${face.faceName}`}
-                      >
-                        <div
-                          className="home-section__preview-face-image"
-                          style={{
-                            '--face-image': `url(${face.image})`,
-                            '--face-position': face.position,
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="home-section__preview-cube-shadow" />
-                </div>
-                <div className="home-section__preview-glass" aria-hidden="true" />
-                <div className="home-section__preview-badge">{section.card.badge}</div>
+            <div className="home-section__hero-mascot">
+              <div className="home-section__stat-bubble home-section__stat-bubble--tl">
+                <span className="home-section__stat-bubble-value">1.2만+</span>
+                <span className="home-section__stat-bubble-label">영상 요약</span>
               </div>
-              <div className="home-section__preview-body">
-                <p className="home-section__preview-label">{section.card.label}</p>
-                <h2>{section.card.heading}</h2>
-                <p>{section.card.body}</p>
-                <div className="home-section__preview-tags">
-                  {section.card.tags.map((tag) => (
-                    <span key={tag}>{tag}</span>
-                  ))}
-                </div>
-                <a className="home-section__preview-link" href={section.card.linkHref}>
-                  {section.card.linkLabel}
+              <Mascot />
+              <div className="home-section__stat-bubble home-section__stat-bubble--br">
+                <span className="home-section__stat-bubble-value">15개국</span>
+                <span className="home-section__stat-bubble-label">뉴스 비교</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="home-section__content">
+            <div className="home-section__copy">
+              {section.eyebrow ? (
+                <p className="home-section__eyebrow">{section.eyebrow}</p>
+              ) : null}
+              <h1 className="home-section__title">
+                {section.titleLines.map((line, lineIndex) => (
+                  <span
+                    key={line}
+                    className={
+                      lineIndex === section.accentLine
+                        ? 'home-section__title-line home-section__title-line--accent'
+                        : 'home-section__title-line'
+                    }
+                  >
+                    {line}
+                  </span>
+                ))}
+              </h1>
+
+              <p className="home-section__description">{section.description}</p>
+
+              <div className="home-section__actions">
+                <a className="home-section__primary-button" href={section.primaryHref}>
+                  {section.primaryLabel}
+                </a>
+                <a className="home-section__secondary-button" href={section.secondaryHref}>
+                  {section.secondaryLabel}
                 </a>
               </div>
-            </article>
-          ) : null}
-        </div>
+            </div>
+
+            {section.card ? (
+              <article className="home-section__preview-card">
+                <div className="home-section__preview-media">
+                  <div className="home-section__preview-cube-stage" aria-hidden="true">
+                    <div className="home-section__preview-cube">
+                      {previewFaces.map((face) => (
+                        <div
+                          key={`${section.card.heading}-${face.faceName}`}
+                          className={`home-section__preview-face home-section__preview-face--${face.faceName}`}
+                        >
+                          <div
+                            className="home-section__preview-face-image"
+                            style={{
+                              '--face-image': `url(${face.image})`,
+                              '--face-position': face.position,
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="home-section__preview-cube-shadow" />
+                  </div>
+                  <div className="home-section__preview-glass" aria-hidden="true" />
+                  <div className="home-section__preview-badge">{section.card.badge}</div>
+                </div>
+                <div className="home-section__preview-body">
+                  <p className="home-section__preview-label">{section.card.label}</p>
+                  <h2>{section.card.heading}</h2>
+                  <p>{section.card.body}</p>
+                  <div className="home-section__preview-tags">
+                    {section.card.tags.map((tag) => (
+                      <span key={tag}>{tag}</span>
+                    ))}
+                  </div>
+                  <a className="home-section__preview-link" href={section.card.linkHref}>
+                    {section.card.linkLabel}
+                  </a>
+                </div>
+              </article>
+            ) : null}
+          </div>
+        )}
 
         <div className="home-section__footer">
           <a className="home-section__scroll-indicator" href={nextHref}>

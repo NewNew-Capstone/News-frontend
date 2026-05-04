@@ -166,6 +166,26 @@ function App() {
     completeAuth(authResult, fallbackProfile)
   }
 
+  const handleProfileUpdate = (nextUserProfile) => {
+    setAuthSession((currentSession) => {
+      if (!currentSession) {
+        return currentSession
+      }
+
+      const nextSession = {
+        ...currentSession,
+        user: {
+          ...currentSession.user,
+          ...nextUserProfile,
+        },
+      }
+
+      persistAuthSession(nextSession)
+
+      return nextSession
+    })
+  }
+
   const handleMoveToSignup = () => {
     window.location.hash = '#signup'
   }
@@ -243,6 +263,7 @@ function App() {
         isLoggedIn={isLoggedIn}
         onAuthClick={handleAuthClick}
         onLogout={handleLogout}
+        onProfileUpdate={handleProfileUpdate}
         user={authSession?.user}
       />
     )

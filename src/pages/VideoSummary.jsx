@@ -4,13 +4,19 @@ import LoginModal from '../components/auth/LoginModal'
 import SummaryPublisherSection from '../components/summary/SummaryPublisherSection'
 import SummarySearchResultList from '../components/summary/SummarySearchResultList'
 import {
+  createScrapLookup,
+  deleteScrapVideo,
+  fetchScrapVideos,
+  saveScrapVideo,
+} from '../services/scraps'
+import {
   fetchNewsPoliticsTrendingKeywords,
   fetchRecommendedChannelVideos,
   fetchYoutubeSearchResults,
 } from '../services/youtube'
 import './VideoSummary.css'
 
-const NEWS_POLITICS_KEYWORD_FALLBACK = ['정치 뉴스', '국회', '북한']
+const NEWS_POLITICS_KEYWORD_FALLBACK = ['정치 이슈', '국회', '북한']
 const TRENDING_KEYWORD_LIMIT = 3
 
 function pickFirst(video, keys, fallback = '') {
@@ -72,55 +78,46 @@ function buildMetaText(video) {
   return parts.join(' · ') || '채널 정보 없음'
 }
 
-function collectScrappedMap(searchSection, publishers) {
-  const allSections = [...(searchSection ? [searchSection] : []), ...publishers]
-
-  return allSections.reduce((map, section) => {
-    section.articles.forEach((article) => {
-      map[article.id] = article.scrapped
-    })
-
-    return map
-  }, {})
-}
-
-function createVideoCard(video, scrappedMap, index) {
+function createVideoCard(video, scrapLookup, index) {
   const youtubeVideoId = pickFirst(video, ['youtubeVideoId', 'videoId', 'id'], '')
   const id = pickFirst(
     video,
     ['youtubeVideoId', 'videoId', 'id', 'originalUrl', 'url'],
     `video-${index + 1}`,
   )
+  const normalizedYoutubeVideoId = youtubeVideoId || id
+  const scrapItem = scrapLookup[normalizedYoutubeVideoId] || null
   const title = pickFirst(video, ['title', 'videoTitle', 'name'], '영상 제목 정보가 없습니다.')
   const publishedAt = pickFirst(video, ['publishedAt', 'publishedDate', 'published_at', 'uploadDate'])
   const image = pickFirst(video, ['thumbnailUrl', 'thumbnail', 'thumbnailURL', 'thumbUrl', 'imageUrl'])
   const originalUrl = pickFirst(
     video,
     ['originalUrl', 'url', 'videoUrl', 'youtubeUrl'],
-    video.youtubeVideoId ? `https://www.youtube.com/watch?v=${video.youtubeVideoId}` : '',
+    normalizedYoutubeVideoId ? `https://www.youtube.com/watch?v=${normalizedYoutubeVideoId}` : '',
   )
 
   return {
     id,
-    youtubeVideoId: youtubeVideoId || id,
+    youtubeVideoId: normalizedYoutubeVideoId,
     title,
     reporter: buildMetaText(video),
     date: formatPublishedDate(publishedAt),
     image,
-    scrapped: Boolean(scrappedMap[id]),
     originalUrl,
+    scrapId: scrapItem?.scrapId ?? null,
+    scrapped: Boolean(scrapItem),
   }
 }
 
-function createSearchSection(keyword, videos, scrappedMap) {
+function createSearchSection(keyword, videos, scrapLookup) {
   return {
     id: 'search-results',
     name: `"${keyword}" 검색 결과`,
-    articles: videos.map((video, index) => createVideoCard(video, scrappedMap, index)),
+    articles: videos.map((video, index) => createVideoCard(video, scrapLookup, index)),
   }
 }
 
-function createRecommendedSections(videos, scrappedMap) {
+function createRecommendedSections(videos, scrapLookup) {
   const grouped = videos.reduce((map, video, index) => {
     const channelName = pickFirst(
       video,
@@ -137,7 +134,7 @@ function createRecommendedSections(videos, scrappedMap) {
       })
     }
 
-    map.get(sectionId).articles.push(createVideoCard(video, scrappedMap, index))
+    map.get(sectionId).articles.push(createVideoCard(video, scrapLookup, index))
 
     return map
   }, new Map())
@@ -145,23 +142,41 @@ function createRecommendedSections(videos, scrappedMap) {
   return Array.from(grouped.values())
 }
 
-function toggleSectionScrap(section, articleId) {
+function syncSectionScraps(section, scrapLookup) {
   if (!section) {
     return section
   }
 
   return {
     ...section,
-    articles: section.articles.map((article) =>
-      article.id === articleId ? { ...article, scrapped: !article.scrapped } : article,
-    ),
+    articles: section.articles.map((article) => {
+      const scrapItem = scrapLookup[article.youtubeVideoId] || null
+
+      return {
+        ...article,
+        scrapId: scrapItem?.scrapId ?? null,
+        scrapped: Boolean(scrapItem),
+      }
+    }),
   }
+}
+
+function findArticleBySection(searchSection, publishers, sectionId, articleId) {
+  if (searchSection?.id === sectionId) {
+    return searchSection.articles.find((article) => article.id === articleId) || null
+  }
+
+  const publisherSection = publishers.find((publisher) => publisher.id === sectionId)
+
+  return publisherSection?.articles.find((article) => article.id === articleId) || null
 }
 
 function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup }) {
   const [query, setQuery] = useState('')
   const [publishers, setPublishers] = useState([])
   const [searchSection, setSearchSection] = useState(null)
+  const [scrapLookup, setScrapLookup] = useState({})
+  const [pendingScrapKeys, setPendingScrapKeys] = useState([])
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
@@ -173,6 +188,14 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
   const openLoginModal = () => setIsLoginModalOpen(true)
   const closeLoginModal = () => setIsLoginModalOpen(false)
   const hasSearchResults = Boolean(searchSection?.articles?.length)
+
+  const applyScrapLookup = (nextScrapLookup) => {
+    setScrapLookup(nextScrapLookup)
+    setSearchSection((currentSearchSection) => syncSectionScraps(currentSearchSection, nextScrapLookup))
+    setPublishers((currentPublishers) =>
+      currentPublishers.map((publisher) => syncSectionScraps(publisher, nextScrapLookup)),
+    )
+  }
 
   const handleOpenVideo = (youtubeVideoId) => {
     if (!youtubeVideoId) {
@@ -194,9 +217,7 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
         })
 
         if (!isCancelled) {
-          setPopularKeywords(
-            keywords.length ? keywords : NEWS_POLITICS_KEYWORD_FALLBACK,
-          )
+          setPopularKeywords(keywords.length ? keywords : NEWS_POLITICS_KEYWORD_FALLBACK)
         }
       } catch {
         if (!isCancelled) {
@@ -220,7 +241,8 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
     if (!isLoggedIn) {
       setPublishers([])
       setSearchSection(null)
-      setRecommendationMessage('로그인 후 추천 영상을 확인할 수 있습니다.')
+      setScrapLookup({})
+      setRecommendationMessage('로그인 후 추천 영상과 스크랩 상태를 확인할 수 있습니다.')
       return undefined
     }
 
@@ -231,19 +253,28 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
       setRecommendationMessage('')
 
       try {
-        const videos = await fetchRecommendedChannelVideos()
+        const [videosResult, scrapsResult] = await Promise.allSettled([
+          fetchRecommendedChannelVideos(),
+          fetchScrapVideos(),
+        ])
 
         if (isCancelled) {
           return
         }
 
-        const scrappedMap = collectScrappedMap(searchSection, publishers)
-        const nextPublishers = createRecommendedSections(videos, scrappedMap)
+        if (videosResult.status !== 'fulfilled') {
+          throw videosResult.reason
+        }
+
+        const nextScrapLookup =
+          scrapsResult.status === 'fulfilled' ? createScrapLookup(scrapsResult.value) : {}
+
+        applyScrapLookup(nextScrapLookup)
+
+        const nextPublishers = createRecommendedSections(videosResult.value, nextScrapLookup)
 
         setPublishers(nextPublishers)
-        setRecommendationMessage(
-          nextPublishers.length ? '' : '표시할 추천 영상이 아직 없습니다.',
-        )
+        setRecommendationMessage(nextPublishers.length ? '' : '표시할 추천 영상이 아직 없습니다.')
       } catch (error) {
         if (!isCancelled) {
           setPublishers([])
@@ -281,8 +312,7 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
 
     try {
       const videos = await fetchYoutubeSearchResults(trimmedKeyword)
-      const scrappedMap = collectScrappedMap(searchSection, publishers)
-      const nextSearchSection = createSearchSection(trimmedKeyword, videos, scrappedMap)
+      const nextSearchSection = createSearchSection(trimmedKeyword, videos, scrapLookup)
 
       setSearchSection(nextSearchSection)
       setSearchMessage(videos.length ? '' : '검색 결과가 없습니다.')
@@ -320,27 +350,56 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
     await runSearch(keyword)
   }
 
-  const handleToggleScrap = (publisherId, articleId) => {
+  const handleToggleScrap = async (publisherId, articleId) => {
     if (!isLoggedIn) {
       openLoginModal()
       return
     }
 
-    setSearchSection((currentSearchSection) =>
-      currentSearchSection?.id === publisherId
-        ? toggleSectionScrap(currentSearchSection, articleId)
-        : currentSearchSection,
-    )
+    const pendingKey = `${publisherId}:${articleId}`
 
-    setPublishers((currentPublishers) =>
-      currentPublishers.map((publisher) => {
-        if (publisher.id !== publisherId) {
-          return publisher
-        }
+    if (pendingScrapKeys.includes(pendingKey)) {
+      return
+    }
 
-        return toggleSectionScrap(publisher, articleId)
-      }),
-    )
+    const targetArticle = findArticleBySection(searchSection, publishers, publisherId, articleId)
+
+    if (!targetArticle?.youtubeVideoId) {
+      return
+    }
+
+    setPendingScrapKeys((currentKeys) => [...currentKeys, pendingKey])
+
+    try {
+      const currentScrapId =
+        targetArticle.scrapId || scrapLookup[targetArticle.youtubeVideoId]?.scrapId || null
+
+      if (targetArticle.scrapped && currentScrapId) {
+        await deleteScrapVideo(currentScrapId)
+      } else {
+        await saveScrapVideo(targetArticle.youtubeVideoId)
+      }
+
+      const latestScrapItems = await fetchScrapVideos()
+      applyScrapLookup(createScrapLookup(latestScrapItems))
+
+      if (publisherId === 'search-results') {
+        setSearchMessage('')
+      } else {
+        setRecommendationMessage('')
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : '스크랩 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+
+      if (publisherId === 'search-results') {
+        setSearchMessage(errorMessage)
+      } else {
+        setRecommendationMessage(errorMessage)
+      }
+    } finally {
+      setPendingScrapKeys((currentKeys) => currentKeys.filter((key) => key !== pendingKey))
+    }
   }
 
   return (
@@ -351,6 +410,7 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
           serviceHref="#home"
           isLoggedIn={isLoggedIn}
           onAuthClick={onAuthClick}
+          maxWidth="1320px"
         />
 
         <div className="video-summary-page__panel">
@@ -379,7 +439,7 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
                 type="submit"
                 aria-label="검색"
               >
-                ⌕
+                검색
               </button>
               <input
                 id="summary-search-input"
@@ -389,7 +449,7 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
                   setQuery(event.target.value)
                   setSearchMessage('')
                 }}
-                placeholder="검색하실 키워드를 입력해주세요"
+                placeholder="검색하실 키워드를 입력해 주세요"
               />
             </form>
 

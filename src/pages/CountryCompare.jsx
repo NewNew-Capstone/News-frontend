@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Navbar from '../components/Navbar'
+import RotatingArticleCarousel from '../components/RotatingArticleCarousel'
 import { fetchIssueComparison, fetchIssueSearchResults } from '../services/issues'
 import { fetchRecommendedChannelVideos } from '../services/youtube'
 import './CountryCompare.css'
@@ -289,6 +291,19 @@ function CountryCompare({ isLoggedIn, onAuthClick }) {
   }, [activeModal])
 
   useEffect(() => {
+    if (!activeModal) {
+      return undefined
+    }
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [activeModal])
+
+  useEffect(() => {
     let isCancelled = false
 
     const loadRecommendations = async () => {
@@ -489,10 +504,134 @@ function CountryCompare({ isLoggedIn, onAuthClick }) {
     }
   }
 
+  const modalRoot = typeof document !== 'undefined' ? document.body : null
+
+  const modalContent =
+    activeModal === 'countries' ? (
+      <div className="country-compare-page__modal" role="presentation" onClick={closeModal}>
+        <div
+          className="country-compare-page__dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="country-compare-country-modal-title"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            className="country-compare-page__modal-close"
+            type="button"
+            onClick={closeModal}
+            aria-label="국가 선택 모달 닫기"
+          >
+            <CloseIcon />
+          </button>
+          <h2 id="country-compare-country-modal-title">비교할 국가 선택</h2>
+          <p className="country-compare-page__modal-description">
+            비교할 국가는 최대 2개까지 선택할 수 있습니다.
+          </p>
+          <div className="country-compare-page__option-grid">
+            {countryOptions.map((country) => {
+              const isSelected = draftCountryCodes.includes(country.code)
+              const isDisabled = !isSelected && draftCountryCodes.length >= 2
+
+              return (
+                <button
+                  key={country.code}
+                  className={`country-compare-page__option-chip ${
+                    isSelected ? 'country-compare-page__option-chip--selected' : ''
+                  }`}
+                  type="button"
+                  onClick={() => handleToggleCountry(country.code)}
+                  disabled={isDisabled}
+                >
+                  {country.label}
+                </button>
+              )
+            })}
+          </div>
+          <div className="country-compare-page__modal-actions">
+            <button
+              className="country-compare-page__modal-button country-compare-page__modal-button--secondary"
+              type="button"
+              onClick={closeModal}
+            >
+              취소
+            </button>
+            <button
+              className="country-compare-page__modal-button country-compare-page__modal-button--primary"
+              type="button"
+              onClick={handleApplyCountries}
+              disabled={!draftCountryCodes.length}
+            >
+              선택 완료
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : activeModal === 'period' ? (
+      <div className="country-compare-page__modal" role="presentation" onClick={closeModal}>
+        <div
+          className="country-compare-page__dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="country-compare-period-modal-title"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            className="country-compare-page__modal-close"
+            type="button"
+            onClick={closeModal}
+            aria-label="기간 선택 모달 닫기"
+          >
+            <CloseIcon />
+          </button>
+          <h2 id="country-compare-period-modal-title">기간 선택</h2>
+          <p className="country-compare-page__modal-description">
+            비교할 이슈를 찾을 기간을 선택해 주세요.
+          </p>
+          <div className="country-compare-page__period-list">
+            {periodOptions.map((period) => (
+              <button
+                key={period.id}
+                className={`country-compare-page__period-option ${
+                  draftPeriodId === period.id ? 'country-compare-page__period-option--selected' : ''
+                }`}
+                type="button"
+                onClick={() => setDraftPeriodId(period.id)}
+              >
+                {period.label}
+              </button>
+            ))}
+          </div>
+          <div className="country-compare-page__modal-actions">
+            <button
+              className="country-compare-page__modal-button country-compare-page__modal-button--secondary"
+              type="button"
+              onClick={closeModal}
+            >
+              취소
+            </button>
+            <button
+              className="country-compare-page__modal-button country-compare-page__modal-button--primary"
+              type="button"
+              onClick={handleApplyPeriod}
+            >
+              선택 완료
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null
+
   return (
     <main id="country-compare-top" className="country-compare-page">
       <section className="country-compare-page__shell">
-        <Navbar activeKey="compare" serviceHref="#home" isLoggedIn={isLoggedIn} onAuthClick={onAuthClick} />
+        <Navbar
+          activeKey="compare"
+          serviceHref="#home"
+          isLoggedIn={isLoggedIn}
+          onAuthClick={onAuthClick}
+          maxWidth="1320px"
+        />
 
         <div className="country-compare-page__panel">
           <header className="country-compare-page__intro">
@@ -642,30 +781,16 @@ function CountryCompare({ isLoggedIn, onAuthClick }) {
               {!isLoadingRecommendations && recommendationMessage ? <p className="country-compare-page__status">{recommendationMessage}</p> : null}
               <div className="country-compare-page__section-list">
                 {recommendationSections.map((section) => (
-                  <section key={section.id} className="country-compare-page__section">
+                  <section
+                    key={section.id}
+                    className="country-compare-page__section country-compare-page__section--recommendation"
+                  >
                     <h2>{section.name}</h2>
-                    <div className="country-compare-page__rail-shell">
-                      <button className="country-compare-page__rail-arrow" type="button" aria-label={`${section.name} 왼쪽으로 이동`} onClick={() => handleScrollRail(section.id, 'left')}>
-                        <ChevronIcon direction="left" />
-                      </button>
-                      <div className="country-compare-page__rail" ref={(element) => { railRefs.current[section.id] = element }}>
-                        {section.articles.map((article) => (
-                          <button key={article.id} className="country-compare-page__video-card" type="button" onClick={() => handleOpenVideo(article.youtubeVideoId)}>
-                            <div className="country-compare-page__video-thumb">
-                              {article.image ? <img src={article.image} alt={article.title} /> : <div className="country-compare-page__video-placeholder" />}
-                            </div>
-                            <div className="country-compare-page__video-body">
-                              <strong>{article.title}</strong>
-                              <p>{article.description || article.reporter}</p>
-                              <span>{article.date}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                      <button className="country-compare-page__rail-arrow" type="button" aria-label={`${section.name} 오른쪽으로 이동`} onClick={() => handleScrollRail(section.id, 'right')}>
-                        <ChevronIcon direction="right" />
-                      </button>
-                    </div>
+                    <RotatingArticleCarousel
+                      articles={section.articles}
+                      sectionName={section.name}
+                      onOpenArticle={handleOpenVideo}
+                    />
                   </section>
                 ))}
               </div>
@@ -675,53 +800,8 @@ function CountryCompare({ isLoggedIn, onAuthClick }) {
 
         <a className="country-compare-page__floating-top" href="#country-compare-top" aria-label="맨 위로 이동">↑</a>
 
-        {activeModal === 'countries' ? (
-          <div className="country-compare-page__modal" role="presentation" onClick={closeModal}>
-            <div className="country-compare-page__dialog" role="dialog" aria-modal="true" aria-labelledby="country-compare-country-modal-title" onClick={(event) => event.stopPropagation()}>
-              <button className="country-compare-page__modal-close" type="button" onClick={closeModal} aria-label="국가 선택 모달 닫기"><CloseIcon /></button>
-              <h2 id="country-compare-country-modal-title">비교할 국가 선택</h2>
-              <p className="country-compare-page__modal-description">비교할 국가는 최대 2개까지 선택할 수 있습니다.</p>
-              <div className="country-compare-page__option-grid">
-                {countryOptions.map((country) => {
-                  const isSelected = draftCountryCodes.includes(country.code)
-                  const isDisabled = !isSelected && draftCountryCodes.length >= 2
-
-                  return (
-                    <button key={country.code} className={`country-compare-page__option-chip ${isSelected ? 'country-compare-page__option-chip--selected' : ''}`} type="button" onClick={() => handleToggleCountry(country.code)} disabled={isDisabled}>
-                      {country.label}
-                    </button>
-                  )
-                })}
-              </div>
-              <div className="country-compare-page__modal-actions">
-                <button className="country-compare-page__modal-button country-compare-page__modal-button--secondary" type="button" onClick={closeModal}>취소</button>
-                <button className="country-compare-page__modal-button country-compare-page__modal-button--primary" type="button" onClick={handleApplyCountries} disabled={!draftCountryCodes.length}>선택 완료</button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {activeModal === 'period' ? (
-          <div className="country-compare-page__modal" role="presentation" onClick={closeModal}>
-            <div className="country-compare-page__dialog" role="dialog" aria-modal="true" aria-labelledby="country-compare-period-modal-title" onClick={(event) => event.stopPropagation()}>
-              <button className="country-compare-page__modal-close" type="button" onClick={closeModal} aria-label="기간 선택 모달 닫기"><CloseIcon /></button>
-              <h2 id="country-compare-period-modal-title">기간 선택</h2>
-              <p className="country-compare-page__modal-description">비교할 이슈를 찾을 기간을 선택해 주세요.</p>
-              <div className="country-compare-page__period-list">
-                {periodOptions.map((period) => (
-                  <button key={period.id} className={`country-compare-page__period-option ${draftPeriodId === period.id ? 'country-compare-page__period-option--selected' : ''}`} type="button" onClick={() => setDraftPeriodId(period.id)}>
-                    {period.label}
-                  </button>
-                ))}
-              </div>
-              <div className="country-compare-page__modal-actions">
-                <button className="country-compare-page__modal-button country-compare-page__modal-button--secondary" type="button" onClick={closeModal}>취소</button>
-                <button className="country-compare-page__modal-button country-compare-page__modal-button--primary" type="button" onClick={handleApplyPeriod}>선택 완료</button>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </section>
+      {modalRoot && modalContent ? createPortal(modalContent, modalRoot) : null}
     </main>
   )
 }
