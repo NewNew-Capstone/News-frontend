@@ -429,12 +429,12 @@ function dedupeSentenceLabels(sentenceLabels) {
     .slice(0, MAX_SENTENCE_LABELS)
 }
 
-async function pollAnalysisResult(targetId) {
+async function pollAnalysisResult(targetId, accessToken = '') {
   let pendingError = null
 
   for (let attempt = 0; attempt < ANALYSIS_POLL_ATTEMPTS; attempt += 1) {
     try {
-      return await fetchVideoAnalysisResult(targetId)
+      return await fetchVideoAnalysisResult(targetId, accessToken)
     } catch (error) {
       if (!isAnalysisMissingError(error)) {
         throw error
@@ -455,7 +455,7 @@ async function pollAnalysisResult(targetId) {
   throw new Error('영상 분석 결과를 불러오지 못했습니다.')
 }
 
-function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
+function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = '' }) {
   const [videoDetail, setVideoDetail] = useState(null)
   const [comments, setComments] = useState([])
   const [recommendedVideos, setRecommendedVideos] = useState([])
@@ -652,10 +652,10 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
       try {
         const [detailResult, commentsResult, recommendedVideosResult, scrapsResult] =
           await Promise.allSettled([
-            fetchYoutubeVideoDetail(videoId),
-            fetchYoutubeComments(videoId),
-            fetchRecommendedChannelVideos(),
-            fetchScrapVideos(),
+            fetchYoutubeVideoDetail(videoId, accessToken),
+            fetchYoutubeComments(videoId, accessToken),
+            fetchRecommendedChannelVideos(accessToken),
+            fetchScrapVideos(accessToken),
           ])
 
         if (isCancelled) {
@@ -727,7 +727,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
     return () => {
       isCancelled = true
     }
-  }, [videoId])
+  }, [videoId, accessToken])
 
   useEffect(() => {
     if (!analysisTargetId || hasCheckedExistingAnalysis) {
@@ -741,7 +741,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
       setAnalysisErrorMessage('')
 
       try {
-        const nextAnalysisResult = await fetchVideoAnalysisResult(analysisTargetId)
+        const nextAnalysisResult = await fetchVideoAnalysisResult(analysisTargetId, accessToken)
 
         if (!isCancelled) {
           setAnalysisResult(nextAnalysisResult)
@@ -765,7 +765,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
     return () => {
       isCancelled = true
     }
-  }, [analysisTargetId, hasCheckedExistingAnalysis])
+  }, [analysisTargetId, hasCheckedExistingAnalysis, accessToken])
 
   useEffect(() => {
     if (!isAnalysisModalOpen) {
@@ -830,12 +830,12 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
 
     try {
       if (isMainScrapped && mainScrapId) {
-        await deleteScrapVideo(mainScrapId)
+        await deleteScrapVideo(mainScrapId, accessToken)
       } else {
-        await saveScrapVideo(videoDetail.youtubeVideoId)
+        await saveScrapVideo(videoDetail.youtubeVideoId, accessToken)
       }
 
-      const latestScrapVideos = await fetchScrapVideos()
+      const latestScrapVideos = await fetchScrapVideos(accessToken)
       syncScrapState(createScrapLookup(latestScrapVideos), videoDetail.youtubeVideoId)
     } catch (error) {
       setActionErrorMessage(
@@ -864,12 +864,12 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
 
     try {
       if (recommendation.scrapped && recommendation.scrapId) {
-        await deleteScrapVideo(recommendation.scrapId)
+        await deleteScrapVideo(recommendation.scrapId, accessToken)
       } else {
-        await saveScrapVideo(recommendation.youtubeVideoId)
+        await saveScrapVideo(recommendation.youtubeVideoId, accessToken)
       }
 
-      const latestScrapVideos = await fetchScrapVideos()
+      const latestScrapVideos = await fetchScrapVideos(accessToken)
       syncScrapState(createScrapLookup(latestScrapVideos), videoDetail?.youtubeVideoId || '')
     } catch (error) {
       setActionErrorMessage(
@@ -901,7 +901,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
     setActionErrorMessage('')
 
     try {
-      const startedAnalysis = await startVideoAnalysis(videoDetail.youtubeVideoId)
+      const startedAnalysis = await startVideoAnalysis(videoDetail.youtubeVideoId, accessToken)
       const nextTargetId =
         startedAnalysis.targetId ??
         analysisTargetId ??
@@ -925,7 +925,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
       setAnalysisTargetId(nextTargetId)
       setHasCheckedExistingAnalysis(true)
 
-      const nextAnalysisResult = await pollAnalysisResult(nextTargetId)
+      const nextAnalysisResult = await pollAnalysisResult(nextTargetId, accessToken)
 
       setAnalysisResult(nextAnalysisResult)
     } catch (error) {

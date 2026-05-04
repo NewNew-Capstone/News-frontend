@@ -62,6 +62,7 @@ function App() {
   const [oauthState, setOAuthState] = useState(initialOAuthState)
 
   const isLoggedIn = Boolean(authSession)
+  const accessToken = authSession?.token || ''
 
   const completeAuth = (authResult, fallbackProfile = {}) => {
     const nextSession = createAuthSession(authResult, fallbackProfile)
@@ -237,6 +238,7 @@ function App() {
       <VideoSummaryDetail
         isLoggedIn={isLoggedIn}
         onAuthClick={handleAuthClick}
+        accessToken={accessToken}
         videoId={routeState.videoId}
       />
     )
