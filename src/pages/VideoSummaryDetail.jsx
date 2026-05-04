@@ -903,9 +903,22 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
     try {
       const startedAnalysis = await startVideoAnalysis(videoDetail.youtubeVideoId)
       const nextTargetId =
-        startedAnalysis.targetId || analysisTargetId || inferAnalysisTargetId(videoDetail.raw)
+        startedAnalysis.targetId ??
+        analysisTargetId ??
+        videoDetail.targetId ??
+        inferAnalysisTargetId(videoDetail.raw)
 
-      if (!nextTargetId) {
+      if (startedAnalysis.analysisResult) {
+        if (nextTargetId !== null && nextTargetId !== undefined) {
+          setAnalysisTargetId(nextTargetId)
+        }
+
+        setHasCheckedExistingAnalysis(true)
+        setAnalysisResult(startedAnalysis.analysisResult)
+        return
+      }
+
+      if (nextTargetId === null || nextTargetId === undefined) {
         throw new Error('분석 대상 ID를 찾지 못했습니다. 잠시 후 다시 시도해 주세요.')
       }
 
