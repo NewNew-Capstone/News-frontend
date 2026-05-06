@@ -127,6 +127,7 @@ function ChatbotWidget({ accessToken = '', isLoggedIn, onLoginClick, user }) {
     sms: false,
     email: false,
   })
+  const widgetRef = useRef(null)
   const messageListRef = useRef(null)
 
   const botName = welcome?.botName || '뉴스봇'
@@ -251,6 +252,36 @@ function ChatbotWidget({ accessToken = '', isLoggedIn, onLoginClick, user }) {
 
     messageList.scrollTop = messageList.scrollHeight
   }, [messages, isMessagesLoading, isSending])
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined
+    }
+
+    const handlePointerDown = (event) => {
+      if (widgetRef.current?.contains(event.target)) {
+        return
+      }
+
+      setIsOpen(false)
+    }
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown)
+    window.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown)
+      window.removeEventListener('keydown', handleEscape)
+    }
+  }, [isOpen])
 
   const handleOpen = () => {
     setIsOpen(true)
@@ -658,7 +689,10 @@ function ChatbotWidget({ accessToken = '', isLoggedIn, onLoginClick, user }) {
   )
 
   return (
-    <div className={`chatbot-widget ${isOpen ? 'chatbot-widget--open' : ''}`}>
+    <div
+      className={`chatbot-widget ${isOpen ? 'chatbot-widget--open' : ''}`}
+      ref={widgetRef}
+    >
       {isOpen ? (
         <section className="chatbot-widget__panel" aria-label="뉴스봇 채팅">
           <div className="chatbot-widget__body">
