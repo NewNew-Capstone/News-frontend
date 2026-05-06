@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import MyPage from './pages/MyPage'
 import OAuthCallback from './pages/OAuthCallback'
 import Signup from './pages/Signup'
+import ChatbotWidget from './components/chat/ChatbotWidget'
 import {
   clearAuthSession,
   consumeAuthRedirect,
@@ -201,6 +202,18 @@ function App() {
     window.location.hash = '#home'
   }
 
+  const renderWithChatbot = (page) => (
+    <>
+      {page}
+      <ChatbotWidget
+        accessToken={accessToken}
+        isLoggedIn={isLoggedIn}
+        onLoginClick={handleMoveToLogin}
+        user={authSession?.user}
+      />
+    </>
+  )
+
   if (routeState.name === 'oauth-callback') {
     return (
       <OAuthCallback
@@ -212,88 +225,90 @@ function App() {
   }
 
   if (routeState.name === 'summary') {
-    return (
+    return renderWithChatbot(
       <VideoSummary
         isLoggedIn={isLoggedIn}
         onAuthClick={handleAuthClick}
         onLoginSuccess={handleInlineAuthSuccess}
         onMoveToSignup={handleMoveToSignup}
-      />
+      />,
     )
   }
 
   if (routeState.name === 'summary-detail') {
     if (!isLoggedIn) {
-      return (
+      return renderWithChatbot(
         <Login
           isLoggedIn={isLoggedIn}
           onAuthClick={handleAuthClick}
           onLoginSuccess={handleAuthSuccess}
           onMoveToSignup={handleMoveToSignup}
-        />
+        />,
       )
     }
 
-    return (
+    return renderWithChatbot(
       <VideoSummaryDetail
         isLoggedIn={isLoggedIn}
         onAuthClick={handleAuthClick}
         accessToken={accessToken}
         videoId={routeState.videoId}
-      />
+      />,
     )
   }
 
   if (routeState.name === 'compare') {
-    return <CountryCompare isLoggedIn={isLoggedIn} onAuthClick={handleAuthClick} />
+    return renderWithChatbot(
+      <CountryCompare isLoggedIn={isLoggedIn} onAuthClick={handleAuthClick} />,
+    )
   }
 
   if (routeState.name === 'mypage') {
     if (!isLoggedIn) {
-      return (
+      return renderWithChatbot(
         <Login
           isLoggedIn={isLoggedIn}
           onAuthClick={handleAuthClick}
           onLoginSuccess={handleAuthSuccess}
           onMoveToSignup={handleMoveToSignup}
-        />
+        />,
       )
     }
 
-    return (
+    return renderWithChatbot(
       <MyPage
         isLoggedIn={isLoggedIn}
         onAuthClick={handleAuthClick}
         onLogout={handleLogout}
         onProfileUpdate={handleProfileUpdate}
         user={authSession?.user}
-      />
+      />,
     )
   }
 
   if (routeState.name === 'login') {
-    return (
+    return renderWithChatbot(
       <Login
         isLoggedIn={isLoggedIn}
         onAuthClick={handleAuthClick}
         onLoginSuccess={handleAuthSuccess}
         onMoveToSignup={handleMoveToSignup}
-      />
+      />,
     )
   }
 
   if (routeState.name === 'signup') {
-    return (
+    return renderWithChatbot(
       <Signup
         isLoggedIn={isLoggedIn}
         onAuthClick={handleAuthClick}
         onSignupSuccess={handleAuthSuccess}
         onMoveToLogin={handleMoveToLogin}
-      />
+      />,
     )
   }
 
-  return <Home isLoggedIn={isLoggedIn} onAuthClick={handleAuthClick} />
+  return renderWithChatbot(<Home isLoggedIn={isLoggedIn} onAuthClick={handleAuthClick} />)
 }
 
 export default App

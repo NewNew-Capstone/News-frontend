@@ -20,6 +20,8 @@ export default defineConfig(({ mode }) => {
             '/api': {
               target: proxyTarget,
               changeOrigin: true,
+              timeout: 180_000,
+              proxyTimeout: 180_000,
               configure: (proxy) => {
                 proxy.on('error', (error) => {
                   console.error(`[vite-proxy] Failed to reach ${proxyTarget}: ${error.message}`)
