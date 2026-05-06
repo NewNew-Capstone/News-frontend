@@ -105,6 +105,8 @@ function extractTargetId(source, depth = 0) {
       source.targetId ??
       source.analysis_target_id ??
       source.analysisTargetId ??
+      source.analysis_id ??
+      source.analysisId ??
       source.videoPk ??
       source.video_pk ??
       source.youtubeVideoPk ??
@@ -112,6 +114,7 @@ function extractTargetId(source, depth = 0) {
       source.dbId ??
       source.db_id ??
       source.pk ??
+      source.id ??
       null,
   )
 
@@ -119,7 +122,7 @@ function extractTargetId(source, depth = 0) {
     return directTargetId
   }
 
-  for (const key of ['body', 'data', 'result', 'response']) {
+  for (const key of ['body', 'data', 'result', 'response', 'target', 'analysis']) {
     const nestedTargetId = extractTargetId(source[key], depth + 1)
 
     if (nestedTargetId !== null) {
@@ -249,16 +252,16 @@ function normalizeAnalysisResult(source) {
   }
 }
 
-export async function startVideoAnalysis(youtubeVideoId, accessToken = getAccessToken()) {
-  const normalizedYoutubeVideoId =
-    typeof youtubeVideoId === 'string' ? youtubeVideoId.trim() : String(youtubeVideoId || '').trim()
+export async function startVideoAnalysis(youtubeId, accessToken = getAccessToken()) {
+  const normalizedYoutubeId =
+    typeof youtubeId === 'string' ? youtubeId.trim() : String(youtubeId || '').trim()
 
-  if (!normalizedYoutubeVideoId) {
+  if (!normalizedYoutubeId) {
     throw new Error('분석할 유튜브 영상 ID가 없습니다.')
   }
 
   const payload = await requestJson(
-    `/api/v1/analysis/analyze/${encodeURIComponent(normalizedYoutubeVideoId)}`,
+    `/api/v1/analysis/analyze/${encodeURIComponent(normalizedYoutubeId)}`,
     {
       method: 'POST',
       accessToken,

@@ -164,7 +164,7 @@ function formatDateLabel(value, fallback = '날짜 정보 없음') {
 }
 
 function extractYoutubeVideoId(source, fallback = '') {
-  const explicitId = pickFirst(source, ['youtubeVideoId', 'youtubeVideoID', 'youtubeId', 'youtube_id'], '')
+  const explicitId = pickFirst(source, ['youtubeVideoId', 'youtubeVideoID'], '')
 
   if (typeof explicitId === 'string' && explicitId.trim()) {
     return explicitId.trim()
@@ -176,6 +176,36 @@ function extractYoutubeVideoId(source, fallback = '') {
     if (typeof candidate === 'string' && candidate.trim() && !/^\d+$/.test(candidate.trim())) {
       return candidate.trim()
     }
+  }
+
+  return fallback
+}
+
+function extractAnalysisYoutubeId(source, fallback = '') {
+  const explicitId = pickFirst(
+    source,
+    [
+      'youtubeId',
+      'youtube_id',
+      'youtubeDbId',
+      'youtube_db_id',
+      'youtubeVideoDbId',
+      'youtube_video_db_id',
+      'videoPk',
+      'video_pk',
+    ],
+    '',
+  )
+  const normalizedExplicitId = String(explicitId ?? '').trim()
+
+  if (normalizedExplicitId) {
+    return normalizedExplicitId
+  }
+
+  const numericId = pickNumericLikeFirst(source, ['id'], null)
+
+  if (numericId !== null) {
+    return String(numericId)
   }
 
   return fallback
@@ -244,29 +274,14 @@ function formatSentenceLabelType(labelType) {
 function inferAnalysisTargetId(source) {
   return pickNumericLikeFirst(
     source,
-    [
-      'targetId',
-      'target_id',
-      'analysisTargetId',
-      'analysis_target_id',
-      'videoPk',
-      'video_pk',
-      'youtubeVideoPk',
-      'youtube_video_pk',
-      'youtubeVideoDbId',
-      'youtube_video_db_id',
-      'dbId',
-      'db_id',
-      'pk',
-      'videoId',
-      'id',
-    ],
+    ['targetId', 'target_id', 'analysisTargetId', 'analysis_target_id'],
     null,
   )
 }
 
 function normalizeVideoDetail(video, fallbackYoutubeVideoId = '') {
   const youtubeVideoId = extractYoutubeVideoId(video, fallbackYoutubeVideoId)
+  const youtubeId = extractAnalysisYoutubeId(video, youtubeVideoId)
   const title = pickFirst(video, ['title', 'videoTitle', 'name'], '영상 제목 정보가 없습니다.')
   const thumbnailUrl = pickFirst(
     video,
@@ -281,6 +296,7 @@ function normalizeVideoDetail(video, fallbackYoutubeVideoId = '') {
 
   return {
     raw: video,
+    youtubeId,
     youtubeVideoId,
     targetId: inferAnalysisTargetId(video),
     title,
@@ -883,7 +899,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   }
 
   const handleOpenAnalysisModal = () => {
-    if (!videoDetail?.youtubeVideoId || isAnalysisLoading) {
+    const analysisYoutubeId = videoDetail?.youtubeId || videoDetail?.youtubeVideoId
+
+    if (!analysisYoutubeId || isAnalysisLoading) {
       return
     }
 
@@ -891,7 +909,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   }
 
   const handleConfirmAnalysis = async () => {
-    if (!videoDetail?.youtubeVideoId || isAnalysisLoading) {
+    const analysisYoutubeId = videoDetail?.youtubeId || videoDetail?.youtubeVideoId
+
+    if (!analysisYoutubeId || isAnalysisLoading) {
       return
     }
 
@@ -901,12 +921,11 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     setActionErrorMessage('')
 
     try {
-      const startedAnalysis = await startVideoAnalysis(videoDetail.youtubeVideoId, accessToken)
+      const startedAnalysis = await startVideoAnalysis(analysisYoutubeId, accessToken)
       const nextTargetId =
         startedAnalysis.targetId ??
-        analysisTargetId ??
-        videoDetail.targetId ??
-        inferAnalysisTargetId(videoDetail.raw)
+        startedAnalysis.analysisResult?.targetId ??
+        null
 
       if (startedAnalysis.analysisResult) {
         if (nextTargetId !== null && nextTargetId !== undefined) {
