@@ -24,6 +24,10 @@
   50%       { box-shadow: 0 0 0 12px rgba(49, 130, 246, 0.18); }
 }
 
+@keyframes vsdAnalysisSpin {
+  to { transform: rotate(360deg); }
+}
+
 .video-summary-detail-page {
   min-height: 100%;
   height: 100%;
@@ -32,6 +36,49 @@
     radial-gradient(ellipse at 15% 0%,  rgba(49, 130, 246, 0.09) 0%, transparent 50%),
     radial-gradient(ellipse at 85% 95%, rgba(49, 130, 246, 0.06) 0%, transparent 45%),
     var(--bg, #f4f8ff);
+}
+
+.video-summary-detail-page--analysis-loading {
+  position: fixed;
+  inset: 0;
+  height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 15% 0%,  rgba(49, 130, 246, 0.09) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 95%, rgba(49, 130, 246, 0.06) 0%, transparent 45%),
+    var(--bg, #f4f8ff);
+}
+
+.video-summary-detail-page__analysis-loading-page {
+  position: relative;
+  display: grid;
+  place-items: start center;
+  min-height: 100svh;
+  padding-top: 18vh;
+}
+
+.video-summary-detail-page__analysis-loading-indicator {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  color: #2f6fbd;
+}
+
+.video-summary-detail-page__analysis-loading-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 4px solid rgba(205, 214, 228, 0.72);
+  border-top-color: var(--blue, #3182F6);
+  animation: vsdAnalysisSpin 900ms linear infinite;
+}
+
+.video-summary-detail-page__analysis-loading-indicator strong {
+  color: #2f6fbd;
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 
 .video-summary-detail-page__shell {
@@ -81,22 +128,38 @@
 
 .video-summary-detail-page__card--analysis {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.98));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 251, 255, 0.99));
+  border-color: rgba(207, 221, 246, 0.92);
+  padding: 30px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
     0 24px 56px rgba(49, 130, 246, 0.08);
 }
 
+.video-summary-detail-page__card--analysis .video-summary-detail-page__section-header {
+  padding: 0 2px;
+}
+
+.video-summary-detail-page__card--analysis .video-summary-detail-page__section-header h2 {
+  font-size: 1.65rem;
+  letter-spacing: -0.025em;
+}
+
+.video-summary-detail-page__card--analysis .video-summary-detail-page__divider {
+  margin: 18px 0 22px;
+  background: linear-gradient(90deg, rgba(207, 221, 246, 0.95), rgba(229, 235, 244, 0.62));
+}
+
 .video-summary-detail-page__analysis-view {
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 22px;
 }
 
 .video-summary-detail-page__analysis-hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
-  gap: 22px;
+  grid-template-columns: minmax(0, 1.16fr) minmax(330px, 0.84fr);
+  gap: 18px;
   align-items: start;
 }
 
@@ -104,53 +167,61 @@
 .video-summary-detail-page__analysis-detail-stack,
 .video-summary-detail-page__analysis-sidepanel {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .video-summary-detail-page__analysis-caption-card,
 .video-summary-detail-page__analysis-compact-card,
 .video-summary-detail-page__analysis-detail-card,
+.video-summary-detail-page__analysis-subjectivity-card,
+.video-summary-detail-page__analysis-side-metric-card,
 .video-summary-detail-page__analysis-recommendations {
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(207, 221, 246, 0.9);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(196, 216, 248, 0.94);
   box-shadow:
-    0 12px 28px rgba(49, 130, 246, 0.06),
+    0 10px 26px rgba(31, 84, 152, 0.055),
     inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
 .video-summary-detail-page__analysis-caption-card {
-  padding: 18px 20px 20px;
+  padding: 17px 20px 18px;
 }
 
 .video-summary-detail-page__analysis-caption-card h3,
 .video-summary-detail-page__analysis-compact-header h3,
 .video-summary-detail-page__analysis-detail-head h3,
+.video-summary-detail-page__analysis-subjectivity-head h3,
+.video-summary-detail-page__analysis-side-metric-card h3,
 .video-summary-detail-page__analysis-recommendations-header h3 {
   margin: 0;
   color: var(--text-strong, #191f28);
   font-weight: 900;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 
 .video-summary-detail-page__analysis-caption-card h3 {
-  font-size: 1.18rem;
+  font-size: 1rem;
   line-height: 1.45;
 }
 
 .video-summary-detail-page__analysis-caption-card p,
 .video-summary-detail-page__analysis-compact-text,
+.video-summary-detail-page__analysis-subjectivity-card p,
+.video-summary-detail-page__analysis-side-metric-card p,
 .video-summary-detail-page__analysis-detail-card p {
   margin: 10px 0 0;
   color: var(--text, #4e5968);
-  font-size: 0.95rem;
-  line-height: 1.78;
+  font-size: 0.92rem;
+  line-height: 1.75;
 }
 
 .video-summary-detail-page__analysis-compact-card,
 .video-summary-detail-page__analysis-detail-card,
+.video-summary-detail-page__analysis-subjectivity-card,
+.video-summary-detail-page__analysis-side-metric-card,
 .video-summary-detail-page__analysis-recommendations {
-  padding: 20px 22px;
+  padding: 18px 20px;
 }
 
 .video-summary-detail-page__analysis-compact-header,
@@ -165,7 +236,7 @@
 .video-summary-detail-page__analysis-compact-header h3,
 .video-summary-detail-page__analysis-detail-head h3,
 .video-summary-detail-page__analysis-recommendations-header h3 {
-  font-size: 1.08rem;
+  font-size: 1rem;
 }
 
 .video-summary-detail-page__analysis-detail-head span,
@@ -182,10 +253,32 @@
   -webkit-line-clamp: 8;
 }
 
+.video-summary-detail-page__hero--analysis .video-summary-detail-page__hero-link {
+  border: 1px solid rgba(196, 216, 248, 0.94);
+  border-radius: 18px;
+  box-shadow:
+    0 14px 30px rgba(25, 48, 89, 0.10),
+    0 4px 14px rgba(49, 130, 246, 0.08);
+}
+
+.video-summary-detail-page__hero--analysis .video-summary-detail-page__hero-link::after {
+  border-radius: 18px;
+}
+
+.video-summary-detail-page__hero--analysis .video-summary-detail-page__hero-play {
+  width: 70px;
+  height: 70px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--blue, #3182F6);
+  box-shadow:
+    0 10px 26px rgba(25, 48, 89, 0.16),
+    0 0 0 8px rgba(255, 255, 255, 0.18);
+}
+
 .video-summary-detail-page__analysis-bar-list {
   display: grid;
-  gap: 14px;
-  margin-top: 14px;
+  gap: 13px;
+  margin-top: 15px;
 }
 
 .video-summary-detail-page__analysis-bar-item {
@@ -202,19 +295,19 @@
 
 .video-summary-detail-page__analysis-bar-meta strong {
   color: var(--text-strong, #191f28);
-  font-size: 0.94rem;
+  font-size: 0.9rem;
   font-weight: 800;
 }
 
 .video-summary-detail-page__analysis-bar-meta span {
   color: var(--text-medium, #6b7785);
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
 .video-summary-detail-page__analysis-bar-track {
   position: relative;
-  height: 8px;
+  height: 7px;
   overflow: hidden;
   border-radius: 999px;
   background: rgba(205, 214, 228, 0.72);
@@ -241,22 +334,22 @@
 .video-summary-detail-page__analysis-keyword-cloud {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 9px;
   margin-top: 14px;
 }
 
 .video-summary-detail-page__analysis-keyword-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 38px;
-  padding: 0 14px;
+  min-height: 34px;
+  padding: 0 13px;
   border-radius: 999px;
-  background: rgba(241, 246, 255, 0.92);
-  border: 1px solid rgba(196, 214, 247, 0.94);
-  color: #36508f;
-  font-size: 0.9rem;
+  background: rgba(244, 249, 255, 0.94);
+  border: 1px solid rgba(178, 205, 249, 0.96);
+  color: #2f5597;
+  font-size: 0.85rem;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .video-summary-detail-page__analysis-empty {
@@ -274,6 +367,156 @@
 
 .video-summary-detail-page__analysis-score-grid--detail {
   grid-template-columns: 1fr;
+}
+
+.video-summary-detail-page__analysis-subjectivity-head,
+.video-summary-detail-page__analysis-side-metric-card > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.video-summary-detail-page__analysis-side-metric-card > div {
+  align-items: center;
+}
+
+.video-summary-detail-page__analysis-subjectivity-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 14px;
+  border-color: rgba(145, 184, 248, 0.95);
+  background:
+    linear-gradient(135deg, rgba(244, 249, 255, 0.98) 0%, rgba(255, 255, 255, 0.98) 54%, rgba(236, 245, 255, 0.96) 100%);
+  box-shadow:
+    0 16px 34px rgba(49, 130, 246, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.94);
+}
+
+.video-summary-detail-page__analysis-subjectivity-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, #3182f6 0%, #84d7d1 100%);
+}
+
+.video-summary-detail-page__analysis-subjectivity-head {
+  position: relative;
+}
+
+.video-summary-detail-page__analysis-subjectivity-head span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--blue, #3182F6);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.video-summary-detail-page__analysis-subjectivity-head h3 {
+  font-size: 1.08rem;
+}
+
+.video-summary-detail-page__analysis-side-metric-card h3 {
+  font-size: 0.96rem;
+}
+
+.video-summary-detail-page__analysis-side-metric-card span {
+  color: var(--blue, #3182F6);
+  font-size: 1rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.video-summary-detail-page__analysis-subjectivity-head strong {
+  color: var(--blue, #3182F6);
+  font-size: 1.58rem;
+  font-weight: 950;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.video-summary-detail-page__analysis-subjectivity-meter {
+  position: relative;
+}
+
+.video-summary-detail-page__analysis-subjectivity-track {
+  position: relative;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(205, 214, 228, 0.72);
+}
+
+.video-summary-detail-page__analysis-subjectivity-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #9bc3ff 0%, #3182f6 100%);
+  box-shadow: 0 0 20px rgba(49, 130, 246, 0.22);
+}
+
+.video-summary-detail-page__analysis-subjectivity-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  color: var(--text-medium, #6b7785);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.video-summary-detail-page__analysis-subjectivity-card p {
+  position: relative;
+  margin-top: 0;
+  color: var(--text, #4e5968);
+  font-size: 0.91rem;
+}
+
+.video-summary-detail-page__analysis-side-metric-list {
+  display: grid;
+  gap: 14px;
+}
+
+.video-summary-detail-page__analysis-side-metric-card {
+  display: grid;
+  gap: 12px;
+  min-height: 112px;
+  align-content: start;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.98));
+  border-color: rgba(207, 221, 246, 0.9);
+}
+
+.video-summary-detail-page__analysis-side-metric-card p {
+  margin: 0;
+  color: var(--text-medium, #6b7785);
+  font-size: 0.88rem;
+  line-height: 1.58;
+}
+
+.video-summary-detail-page__analysis-side-metric-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(205, 214, 228, 0.64);
+}
+
+.video-summary-detail-page__analysis-side-metric-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #84d7d1 0%, #20a59c 100%);
+}
+
+.video-summary-detail-page__analysis-side-metric-card--emotion .video-summary-detail-page__analysis-side-metric-track span {
+  background: linear-gradient(90deg, #f7dc8a 0%, #efc85b 100%);
+}
+
+.video-summary-detail-page__analysis-side-metric-card--opinion .video-summary-detail-page__analysis-side-metric-track span {
+  background: linear-gradient(90deg, #a8b7ff 0%, #697ce8 100%);
 }
 
 /* ── Status / empty ── */
@@ -647,6 +890,14 @@
   font-size: 0.92rem;
   font-weight: 900;
   letter-spacing: -0.02em;
+}
+
+.video-summary-detail-page__analysis-compact-header .video-summary-detail-page__analysis-pill {
+  min-height: 30px;
+  padding: 0 12px;
+  background: rgba(49, 130, 246, 0.10);
+  border-color: rgba(49, 130, 246, 0.18);
+  font-size: 0.82rem;
 }
 
 .video-summary-detail-page__analysis-score-grid {

@@ -106,7 +106,7 @@ function getErrorMessage(error, fallbackMessage) {
   return error instanceof Error ? error.message : fallbackMessage
 }
 
-function ChatbotWidget({ accessToken = '', isLoggedIn, onLoginClick, user }) {
+function ChatbotWidget({ accessToken = '', context = null, isLoggedIn, onLoginClick, user }) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('home')
   const [welcome, setWelcome] = useState(null)
@@ -389,7 +389,7 @@ function ChatbotWidget({ accessToken = '', isLoggedIn, onLoginClick, user }) {
 
       setMessages((currentMessages) => [...currentMessages, optimisticMessage])
 
-      const nextMessages = await sendChatMessage(targetSession.sessionId, content, accessToken)
+      const nextMessages = await sendChatMessage(targetSession.sessionId, content, accessToken, context)
 
       setMessages((currentMessages) => [
         ...currentMessages.filter((message) => message.id !== optimisticMessage.id),

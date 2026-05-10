@@ -7,89 +7,100 @@
 .mascot__svg {
   width: 100%;
   height: auto;
+  overflow: visible;
   filter:
-    drop-shadow(0 28px 52px rgba(79, 150, 255, 0.38))
-    drop-shadow(0 0 24px rgba(107, 163, 255, 0.18));
+    drop-shadow(0 28px 52px rgba(49, 130, 246, 0.28))
+    drop-shadow(0 4px 18px rgba(25, 48, 89, 0.08));
 }
 
-/* Floating body animation */
 .mascot__float {
-  animation: mascotFloat 3.4s ease-in-out infinite;
+  animation: mascotFloat 3.2s ease-in-out infinite;
 }
 
-/* Shadow shrinks when mascot rises */
 .mascot__shadow {
-  animation: mascotShadow 3.4s ease-in-out infinite;
-  transform-origin: 80px 184px;
+  animation: mascotShadow 3.2s ease-in-out infinite;
+  transform-origin: 90px 188px;
 }
 
-/* Full eye blink — animate the entire eye group so whites/iris/pupil all squish together */
+.mascot__orbit {
+  animation: mascotOrbit 5.8s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.mascot__antenna-dot {
+  animation: mascotSignal 1.9s ease-in-out infinite;
+}
+
 .mascot__eye-left,
 .mascot__eye-right {
   transform-box: fill-box;
   transform-origin: center;
-  animation: mascotBlink 5.2s ease-in-out infinite;
+  animation: mascotBlink 4.8s ease-in-out infinite;
 }
 
-/* Tiny offset so both eyes don't blink in perfect robotic sync */
 .mascot__eye-right {
-  animation-delay: 40ms;
+  animation-delay: 70ms;
 }
 
-/* News badge bobs slightly offset from body */
-.mascot__badge {
-  animation: mascotBadge 3.4s ease-in-out infinite;
+.mascot__news-card {
+  animation: mascotCard 3.2s ease-in-out infinite;
 }
 
-/* Sparkle particles */
 .mascot__sparkle {
   transform-box: fill-box;
   transform-origin: center;
 }
-.mascot__sparkle--1 { animation: mascotSparkle 2.6s ease-in-out infinite; }
-.mascot__sparkle--2 { animation: mascotSparkle 3.1s ease-in-out infinite 0.45s; }
-.mascot__sparkle--3 { animation: mascotSparkle 2.8s ease-in-out infinite 0.9s; }
-.mascot__sparkle--4 { animation: mascotSparkle 3.4s ease-in-out infinite 1.3s; }
-.mascot__sparkle--5 { animation: mascotSparkle 2.5s ease-in-out infinite 0.65s; }
-.mascot__sparkle--6 { animation: mascotSparkle 3.0s ease-in-out infinite 1.8s; }
 
-/* ── Keyframes ── */
+.mascot__sparkle--1 { animation: mascotSparkle 2.7s ease-in-out infinite; }
+.mascot__sparkle--2 { animation: mascotSparkle 3.0s ease-in-out infinite 0.42s; }
+.mascot__sparkle--3 { animation: mascotSparkle 2.5s ease-in-out infinite 0.8s; }
+.mascot__sparkle--4 { animation: mascotSparkle 3.2s ease-in-out infinite 1.15s; }
 
 @keyframes mascotFloat {
-  0%, 100% { transform: translateY(0px); }
-  50%       { transform: translateY(-14px); }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
 }
 
 @keyframes mascotShadow {
-  0%, 100% { transform: scaleX(1);    opacity: 0.10; }
-  50%       { transform: scaleX(0.65); opacity: 0.05; }
+  0%, 100% { transform: scaleX(1); opacity: 0.12; }
+  50% { transform: scaleX(0.7); opacity: 0.06; }
 }
 
-/* Whole-eye squish — now looks like a real eyelid closing */
+@keyframes mascotOrbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes mascotSignal {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.18); opacity: 0.68; }
+}
+
 @keyframes mascotBlink {
   0%, 88%, 100% { transform: scaleY(1); }
-  93%            { transform: scaleY(0.07); }
-  96%            { transform: scaleY(1); }
-  98%            { transform: scaleY(0.1); }
+  92% { transform: scaleY(0.12); }
+  96% { transform: scaleY(1); }
 }
 
-@keyframes mascotBadge {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50%       { transform: translateY(-10px) rotate(2deg); }
+@keyframes mascotCard {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(2px, -7px) rotate(2deg); }
 }
 
 @keyframes mascotSparkle {
-  0%, 100% { transform: scale(1) rotate(0deg);    opacity: 0.22; }
-  40%       { transform: scale(1.6) rotate(18deg); opacity: 0.75; }
-  70%       { transform: scale(0.8) rotate(-8deg); opacity: 0.38; }
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.22; }
+  45% { transform: scale(1.55) rotate(18deg); opacity: 0.72; }
+  72% { transform: scale(0.86) rotate(-8deg); opacity: 0.36; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .mascot__float,
   .mascot__shadow,
+  .mascot__orbit,
+  .mascot__antenna-dot,
   .mascot__eye-left,
   .mascot__eye-right,
-  .mascot__badge,
+  .mascot__news-card,
   .mascot__sparkle {
     animation: none;
   }

@@ -20,6 +20,23 @@ import './VideoSummary.css'
 const NEWS_POLITICS_KEYWORD_FALLBACK = ['정치 이슈', '국회', '북한']
 const TRENDING_KEYWORD_LIMIT = 3
 
+function SearchGlyph() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  )
+}
+
 function pickFirst(video, keys, fallback = '') {
   for (const key of keys) {
     const value = video?.[key]
@@ -442,13 +459,9 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
             </div>
 
             <form className="video-summary-page__searchbar" onSubmit={handleSearchSubmit}>
-              <button
-                className="video-summary-page__search-button"
-                type="submit"
-                aria-label="검색"
-              >
-                검색
-              </button>
+              <span className="video-summary-page__search-icon" aria-hidden="true">
+                <SearchGlyph />
+              </span>
               <input
                 id="summary-search-input"
                 type="text"
@@ -459,6 +472,14 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
                 }}
                 placeholder="검색하실 키워드를 입력해 주세요"
               />
+              <button
+                className="video-summary-page__search-button"
+                type="submit"
+                aria-label="키워드 검색"
+                disabled={isSearching}
+              >
+                {isSearching ? '검색 중' : '검색'}
+              </button>
             </form>
 
             {searchMessage ? (

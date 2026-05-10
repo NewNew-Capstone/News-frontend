@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Navbar from '../components/Navbar'
 import YoutubeThumbnail from '../components/YoutubeThumbnail'
 import { fetchVideoAnalysisResult, startVideoAnalysis } from '../services/analysis'
@@ -132,6 +133,16 @@ function formatScorePercent(value) {
   }
 
   return `${percent.toFixed(1)}%`
+}
+
+function formatScorePoints(value) {
+  const percent = clampPercentage(value)
+
+  if (percent === null) {
+    return '--점'
+  }
+
+  return `${Math.round(percent)}점`
 }
 
 function formatCount(value, label) {
@@ -495,6 +506,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const [actionErrorMessage, setActionErrorMessage] = useState('')
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false)
   const [isAnalysisLoading, setIsAnalysisLoading] = useState(false)
+  const [isAnalysisProgressView, setIsAnalysisProgressView] = useState(false)
   const [analysisResult, setAnalysisResult] = useState(null)
   const [analysisErrorMessage, setAnalysisErrorMessage] = useState('')
   const [analysisTargetId, setAnalysisTargetId] = useState(null)
@@ -520,7 +532,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const scoreCards = [
     {
       key: 'overall-bias',
-      label: '전체 편향도',
+      label: '주관성 점수',
       value: analysisResult?.overallBiasScore ?? null,
       description: '영상 전반의 편향 가능성을 종합한 지표입니다.',
     },
@@ -529,12 +541,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       label: '의견 개입도',
       value: analysisResult?.opinionScore ?? null,
       description: '사실 전달 대신 해석이나 주장 비중이 얼마나 큰지 보여줍니다.',
-    },
-    {
-      key: 'anonymous-source',
-      label: '익명 출처 의존도',
-      value: analysisResult?.anonymousSourceScore ?? null,
-      description: '익명 제보나 불명확한 근거를 얼마나 많이 쓰는지 확인합니다.',
     },
     {
       key: 'headline-gap',
@@ -549,6 +555,13 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       description: '상반된 시각을 균형 있게 담고 있는지 살펴보는 지표입니다.',
     },
   ]
+
+  const subjectivityScoreCard = scoreCards.find((scoreCard) => scoreCard.key === 'overall-bias')
+  const analysisSideMetricCards = [
+    scoreCards.find((scoreCard) => scoreCard.key === 'headline-gap'),
+    emotionScoreCard,
+    scoreCards.find((scoreCard) => scoreCard.key === 'opinion'),
+  ].filter(Boolean)
 
   const keywordItems = dedupeKeywords(analysisResult?.keywords || [])
   const sentenceLabelItems = dedupeSentenceLabels(analysisResult?.sentenceLabels || [])
@@ -573,12 +586,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       value: analysisResult?.emotionScore ?? null,
       toneClassName: 'video-summary-detail-page__analysis-bar-fill--amber',
     },
-    {
-      key: 'anonymous-source',
-      label: '출처 불명',
-      value: analysisResult?.anonymousSourceScore ?? null,
-      toneClassName: 'video-summary-detail-page__analysis-bar-fill--green',
-    },
   ]
   const analysisKeywordItems = keywordItems.slice(0, 8)
 
@@ -599,6 +606,55 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
             className="video-summary-detail-page__analysis-score-fill"
             style={{ width: `${percentage ?? 0}%` }}
           />
+        </div>
+        <p>{scoreCard.description}</p>
+      </article>
+    )
+  }
+
+  const renderSubjectivityScore = (scoreCard) => {
+    const percentage = clampPercentage(scoreCard.value)
+    const scoreLabel = formatScorePoints(scoreCard.value)
+
+    return (
+      <article className="video-summary-detail-page__analysis-subjectivity-card">
+        <div className="video-summary-detail-page__analysis-subjectivity-head">
+          <div>
+            <span>대표 지표</span>
+            <h3>{scoreCard.label}</h3>
+          </div>
+          <strong>{scoreLabel}</strong>
+        </div>
+
+        <div className="video-summary-detail-page__analysis-subjectivity-meter">
+          <div className="video-summary-detail-page__analysis-subjectivity-track">
+            <span style={{ width: `${percentage ?? 0}%` }} />
+          </div>
+          <div className="video-summary-detail-page__analysis-subjectivity-scale">
+            <span>객관적</span>
+            <span>주관적</span>
+          </div>
+        </div>
+
+        <p>{scoreCard.description}</p>
+      </article>
+    )
+  }
+
+  const renderSideMetricCard = (scoreCard) => {
+    const percentage = clampPercentage(scoreCard.value)
+
+    return (
+      <article
+        key={scoreCard.key}
+        className={`video-summary-detail-page__analysis-side-metric-card video-summary-detail-page__analysis-side-metric-card--${scoreCard.key}`}
+      >
+        <div>
+          <h3>{scoreCard.label}</h3>
+          <span>{formatScorePoints(scoreCard.value)}</span>
+        </div>
+        <div className="video-summary-detail-page__analysis-side-metric-track">
+          <span style={{ width: `${percentage ?? 0}%` }} />
         </div>
         <p>{scoreCard.description}</p>
       </article>
@@ -687,6 +743,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       setRecommendedVideos([])
       setAnalysisResult(null)
       setAnalysisErrorMessage('')
+      setIsAnalysisProgressView(false)
       setAnalysisTargetId(null)
       setHasCheckedExistingAnalysis(false)
       setIsSummaryExpanded(false)
@@ -954,6 +1011,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
     setIsAnalysisModalOpen(false)
     setIsAnalysisLoading(true)
+    setIsAnalysisProgressView(true)
     setAnalysisErrorMessage('')
     setActionErrorMessage('')
 
@@ -990,7 +1048,21 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       )
     } finally {
       setIsAnalysisLoading(false)
+      setIsAnalysisProgressView(false)
     }
+  }
+
+  if (isAnalysisProgressView) {
+    return (
+      <main className="video-summary-detail-page video-summary-detail-page--analysis-loading">
+        <section className="video-summary-detail-page__analysis-loading-page" role="status">
+          <div className="video-summary-detail-page__analysis-loading-indicator">
+            <span className="video-summary-detail-page__analysis-loading-spinner" aria-hidden="true" />
+            <strong>Loading..</strong>
+          </div>
+        </section>
+      </main>
+    )
   }
 
   return (
@@ -1088,8 +1160,17 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                       </div>
 
                       <article className="video-summary-detail-page__analysis-caption-card">
-                        <h3>{videoDetail.title}</h3>
-                        <p>{analysisDescriptionText}</p>
+                        <h3>관점 요약</h3>
+                        <p>{analysisResult?.perspectiveSummary || analysisDescriptionText}</p>
+                      </article>
+
+                      {subjectivityScoreCard ? renderSubjectivityScore(subjectivityScoreCard) : null}
+
+                      <article className="video-summary-detail-page__analysis-detail-card">
+                        <div className="video-summary-detail-page__analysis-detail-head">
+                          <h3>근거 요약</h3>
+                        </div>
+                        <p>{analysisResult?.evidenceSummary || analysisDescriptionText}</p>
                       </article>
                     </section>
 
@@ -1158,6 +1239,10 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                           </p>
                         )}
                       </article>
+
+                      <div className="video-summary-detail-page__analysis-side-metric-list">
+                        {analysisSideMetricCards.map(renderSideMetricCard)}
+                      </div>
                     </aside>
                   </div>
 
@@ -1166,43 +1251,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                       {analysisErrorMessage}
                     </p>
                   ) : null}
-
-                  <div className="video-summary-detail-page__analysis-detail-layout">
-                    <div className="video-summary-detail-page__analysis-detail-stack">
-                      {analysisResult?.perspectiveSummary ? (
-                        <article className="video-summary-detail-page__analysis-detail-card">
-                          <div className="video-summary-detail-page__analysis-detail-head">
-                            <h3>관점 요약</h3>
-                          </div>
-                          <p>{analysisResult.perspectiveSummary}</p>
-                        </article>
-                      ) : null}
-
-                      {renderScoreCard(emotionScoreCard)}
-
-                      {analysisResult?.evidenceSummary ? (
-                        <article className="video-summary-detail-page__analysis-detail-card">
-                          <div className="video-summary-detail-page__analysis-detail-head">
-                            <h3>근거 요약</h3>
-                          </div>
-                          <p>{analysisResult.evidenceSummary}</p>
-                        </article>
-                      ) : null}
-                    </div>
-
-                    <div className="video-summary-detail-page__analysis-detail-stack">
-                      <article className="video-summary-detail-page__analysis-detail-card">
-                        <div className="video-summary-detail-page__analysis-detail-head">
-                          <h3>세부 분석 지표</h3>
-                          <span>{scoreCards.length}개 지표</span>
-                        </div>
-
-                        <div className="video-summary-detail-page__analysis-score-grid video-summary-detail-page__analysis-score-grid--detail">
-                          {scoreCards.map(renderScoreCard)}
-                        </div>
-                      </article>
-                    </div>
-                  </div>
 
                   <section className="video-summary-detail-page__analysis-recommendations">
                     <header className="video-summary-detail-page__analysis-recommendations-header">
@@ -1554,7 +1602,8 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
           ↑
         </a>
 
-        {isAnalysisModalOpen ? (
+        {isAnalysisModalOpen ? createPortal(
+          (
           <div
             className="video-summary-detail-page__analysis-modal"
             role="presentation"
@@ -1605,6 +1654,8 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
               </div>
             </div>
           </div>
+          ),
+          document.body,
         ) : null}
       </section>
     </main>
