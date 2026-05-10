@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import logo from '../assets/logo.svg'
 import Navbar from '../components/Navbar'
 import YoutubeThumbnail from '../components/YoutubeThumbnail'
 import { deleteMyAccount, fetchMyProfile, updateMyProfile } from '../services/auth'
@@ -190,18 +189,12 @@ function MyPage({ isLoggedIn, onAuthClick, onLogout, onProfileUpdate, user }) {
     getDisplayText(currentProfile.nickname, '') ||
     getDisplayText(currentProfile.name, '') ||
     '뉴뉴 사용자'
+  const displayInitial = (Array.from(displayNickname.trim())[0] || 'N').toLocaleUpperCase('ko-KR')
   const displayName = getDisplayText(currentProfile.name, '이름 정보 없음')
   const displayEmail = getDisplayText(currentProfile.email, '이메일 정보 없음')
   const displayBirth = formatBirthDate(currentProfile.birth)
   const displayPhone = getDisplayText(currentProfile.phone, '연락처 정보 없음')
   const hasProfileIdentity = Boolean(currentProfile.name && currentProfile.email)
-  const profileStatus = isProfileLoading
-    ? '프로필 동기화 중'
-    : profileErrorMessage
-      ? '기본 정보 표시 중'
-      : hasProfileIdentity
-        ? '프로필 설정 완료'
-        : '프로필 정보 보완 필요'
   const profileStatusDescription = isProfileLoading
     ? '서버에서 최신 프로필 정보를 확인하고 있습니다.'
     : profileErrorMessage
@@ -422,7 +415,24 @@ function MyPage({ isLoggedIn, onAuthClick, onLogout, onProfileUpdate, user }) {
                     <p className="my-page__section-eyebrow">Profile</p>
                     <h2 className="my-page__section-title">내 프로필</h2>
                   </div>
-                  <span className="my-page__section-chip">개인 정보</span>
+                  <div className="my-page__profile-toolbar" aria-label="프로필 도구">
+                    <button
+                      className="my-page__edit-button my-page__edit-button--strong"
+                      type="button"
+                      onClick={handleStartProfileEdit}
+                      disabled={isSavingProfile || isEditingProfile}
+                    >
+                      {isEditingProfile ? '수정 중' : '프로필 수정'}
+                    </button>
+                    <button
+                      className="my-page__ghost-button my-page__ghost-button--compact"
+                      type="button"
+                      onClick={handleProfileRefresh}
+                      disabled={isProfileLoading}
+                    >
+                      {isProfileLoading ? '불러오는 중' : '새로고침'}
+                    </button>
+                  </div>
                 </div>
 
                 <div
@@ -527,43 +537,28 @@ function MyPage({ isLoggedIn, onAuthClick, onLogout, onProfileUpdate, user }) {
 
                 <div className="my-page__profile-layout">
                   <article className="my-page__identity-card">
-                    <div className="my-page__identity-logo-shell">
-                      <img className="my-page__profile-logo" src={logo} alt="뉴뉴 로고" />
+                    <div className="my-page__identity-top">
+                      <div className="my-page__identity-avatar" aria-hidden="true">
+                        {displayInitial}
+                      </div>
+                      <span className="my-page__identity-badge">NNW</span>
                     </div>
-                    <p className="my-page__identity-label">NNW ACCOUNT</p>
+                    <p className="my-page__identity-label">Profile Card</p>
                     <strong className="my-page__identity-name">{displayNickname}</strong>
                     <span className="my-page__identity-email">{displayEmail}</span>
 
                     <div className="my-page__identity-tags">
-                      <span>실시간 프로필</span>
                       <span>{currentProfile.userId ? `회원 #${currentProfile.userId}` : '계정 보안'}</span>
                       <span>{currentProfile.profileImageKey ? '이미지 연결됨' : '기본 프로필'}</span>
+                      <span>News dashboard</span>
                     </div>
                   </article>
 
                   <div className="my-page__profile-grid">
-                    <article className="my-page__info-card my-page__info-card--accent">
+                    <article className="my-page__info-card my-page__info-card--accent my-page__info-card--wide">
                       <span className="my-page__info-label">닉네임</span>
                       <div className="my-page__profile-name-row">
                         <strong>{displayNickname}</strong>
-                        <div className="my-page__profile-card-actions">
-                          <button
-                            className="my-page__edit-button"
-                            type="button"
-                            onClick={handleStartProfileEdit}
-                            disabled={isSavingProfile}
-                          >
-                            프로필 수정
-                          </button>
-                          <button
-                            className="my-page__ghost-button"
-                            type="button"
-                            onClick={handleProfileRefresh}
-                            disabled={isProfileLoading}
-                          >
-                            {isProfileLoading ? '불러오는 중' : '새로고침'}
-                          </button>
-                        </div>
                       </div>
                       <p className="my-page__info-description">
                         서비스 안에서 표시되는 대표 이름입니다.
@@ -600,12 +595,6 @@ function MyPage({ isLoggedIn, onAuthClick, onLogout, onProfileUpdate, user }) {
                       <p className="my-page__info-description">
                         본인 확인과 계정 안내에 사용하는 연락처입니다.
                       </p>
-                    </article>
-
-                    <article className="my-page__info-card">
-                      <span className="my-page__info-label">계정 상태</span>
-                      <strong>{profileStatus}</strong>
-                      <p className="my-page__info-description">{profileStatusDescription}</p>
                     </article>
                   </div>
                 </div>

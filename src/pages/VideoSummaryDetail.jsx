@@ -175,7 +175,7 @@ function formatDateLabel(value, fallback = '날짜 정보 없음') {
 }
 
 function extractYoutubeVideoId(source, fallback = '') {
-  const explicitId = pickFirst(source, ['youtubeVideoId', 'youtubeVideoID', 'youtubeId', 'youtube_id'], '')
+  const explicitId = pickFirst(source, ['youtubeVideoId', 'youtubeVideoID'], '')
 
   if (typeof explicitId === 'string' && explicitId.trim()) {
     return explicitId.trim()
@@ -187,6 +187,36 @@ function extractYoutubeVideoId(source, fallback = '') {
     if (typeof candidate === 'string' && candidate.trim() && !/^\d+$/.test(candidate.trim())) {
       return candidate.trim()
     }
+  }
+
+  return fallback
+}
+
+function extractAnalysisYoutubeId(source, fallback = '') {
+  const explicitId = pickFirst(
+    source,
+    [
+      'youtubeId',
+      'youtube_id',
+      'youtubeDbId',
+      'youtube_db_id',
+      'youtubeVideoDbId',
+      'youtube_video_db_id',
+      'videoPk',
+      'video_pk',
+    ],
+    '',
+  )
+  const normalizedExplicitId = String(explicitId ?? '').trim()
+
+  if (normalizedExplicitId) {
+    return normalizedExplicitId
+  }
+
+  const numericId = pickNumericLikeFirst(source, ['id'], null)
+
+  if (numericId !== null) {
+    return String(numericId)
   }
 
   return fallback
@@ -255,29 +285,14 @@ function formatSentenceLabelType(labelType) {
 function inferAnalysisTargetId(source) {
   return pickNumericLikeFirst(
     source,
-    [
-      'targetId',
-      'target_id',
-      'analysisTargetId',
-      'analysis_target_id',
-      'videoPk',
-      'video_pk',
-      'youtubeVideoPk',
-      'youtube_video_pk',
-      'youtubeVideoDbId',
-      'youtube_video_db_id',
-      'dbId',
-      'db_id',
-      'pk',
-      'videoId',
-      'id',
-    ],
+    ['targetId', 'target_id', 'analysisTargetId', 'analysis_target_id'],
     null,
   )
 }
 
 function normalizeVideoDetail(video, fallbackYoutubeVideoId = '') {
   const youtubeVideoId = extractYoutubeVideoId(video, fallbackYoutubeVideoId)
+  const youtubeId = extractAnalysisYoutubeId(video, youtubeVideoId)
   const title = pickFirst(video, ['title', 'videoTitle', 'name'], '영상 제목 정보가 없습니다.')
   const thumbnailUrl = pickFirst(
     video,
@@ -292,6 +307,7 @@ function normalizeVideoDetail(video, fallbackYoutubeVideoId = '') {
 
   return {
     raw: video,
+    youtubeId,
     youtubeVideoId,
     targetId: inferAnalysisTargetId(video),
     title,
@@ -440,12 +456,12 @@ function dedupeSentenceLabels(sentenceLabels) {
     .slice(0, MAX_SENTENCE_LABELS)
 }
 
-async function pollAnalysisResult(targetId) {
+async function pollAnalysisResult(targetId, accessToken = '') {
   let pendingError = null
 
   for (let attempt = 0; attempt < ANALYSIS_POLL_ATTEMPTS; attempt += 1) {
     try {
-      return await fetchVideoAnalysisResult(targetId)
+      return await fetchVideoAnalysisResult(targetId, accessToken)
     } catch (error) {
       if (!isAnalysisMissingError(error)) {
         throw error
@@ -466,7 +482,7 @@ async function pollAnalysisResult(targetId) {
   throw new Error('영상 분석 결과를 불러오지 못했습니다.')
 }
 
-function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
+function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = '' }) {
   const [videoDetail, setVideoDetail] = useState(null)
   const [comments, setComments] = useState([])
   const [recommendedVideos, setRecommendedVideos] = useState([])
@@ -665,10 +681,10 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
       try {
         const [detailResult, commentsResult, recommendedVideosResult, scrapsResult] =
           await Promise.allSettled([
-            fetchYoutubeVideoDetail(videoId),
-            fetchYoutubeComments(videoId),
-            fetchRecommendedChannelVideos(),
-            fetchScrapVideos(),
+            fetchYoutubeVideoDetail(videoId, accessToken),
+            fetchYoutubeComments(videoId, accessToken),
+            fetchRecommendedChannelVideos(accessToken),
+            fetchScrapVideos(accessToken),
           ])
 
         if (isCancelled) {
@@ -740,7 +756,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
     return () => {
       isCancelled = true
     }
-  }, [videoId])
+  }, [videoId, accessToken])
 
   useEffect(() => {
     if (!analysisTargetId || hasCheckedExistingAnalysis) {
@@ -754,7 +770,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
       setAnalysisErrorMessage('')
 
       try {
-        const nextAnalysisResult = await fetchVideoAnalysisResult(analysisTargetId)
+        const nextAnalysisResult = await fetchVideoAnalysisResult(analysisTargetId, accessToken)
 
         if (!isCancelled) {
           setAnalysisResult(nextAnalysisResult)
@@ -778,7 +794,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
     return () => {
       isCancelled = true
     }
-  }, [analysisTargetId, hasCheckedExistingAnalysis])
+  }, [analysisTargetId, hasCheckedExistingAnalysis, accessToken])
 
   useEffect(() => {
     if (!isAnalysisModalOpen) {
@@ -843,12 +859,12 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
 
     try {
       if (isMainScrapped && mainScrapId) {
-        await deleteScrapVideo(mainScrapId)
+        await deleteScrapVideo(mainScrapId, accessToken)
       } else {
-        await saveScrapVideo(videoDetail.youtubeVideoId)
+        await saveScrapVideo(videoDetail.youtubeVideoId, accessToken)
       }
 
-      const latestScrapVideos = await fetchScrapVideos()
+      const latestScrapVideos = await fetchScrapVideos(accessToken)
       syncScrapState(createScrapLookup(latestScrapVideos), videoDetail.youtubeVideoId)
     } catch (error) {
       setActionErrorMessage(
@@ -877,12 +893,12 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
 
     try {
       if (recommendation.scrapped && recommendation.scrapId) {
-        await deleteScrapVideo(recommendation.scrapId)
+        await deleteScrapVideo(recommendation.scrapId, accessToken)
       } else {
-        await saveScrapVideo(recommendation.youtubeVideoId)
+        await saveScrapVideo(recommendation.youtubeVideoId, accessToken)
       }
 
-      const latestScrapVideos = await fetchScrapVideos()
+      const latestScrapVideos = await fetchScrapVideos(accessToken)
       syncScrapState(createScrapLookup(latestScrapVideos), videoDetail?.youtubeVideoId || '')
     } catch (error) {
       setActionErrorMessage(
@@ -896,7 +912,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
   }
 
   const handleOpenAnalysisModal = () => {
-    if (!videoDetail?.youtubeVideoId || isAnalysisLoading) {
+    const analysisYoutubeId = videoDetail?.youtubeId || videoDetail?.youtubeVideoId
+
+    if (!analysisYoutubeId || isAnalysisLoading) {
       return
     }
 
@@ -904,7 +922,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
   }
 
   const handleConfirmAnalysis = async () => {
-    if (!videoDetail?.youtubeVideoId || isAnalysisLoading) {
+    const analysisYoutubeId = videoDetail?.youtubeId || videoDetail?.youtubeVideoId
+
+    if (!analysisYoutubeId || isAnalysisLoading) {
       return
     }
 
@@ -914,18 +934,30 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
     setActionErrorMessage('')
 
     try {
-      const startedAnalysis = await startVideoAnalysis(videoDetail.youtubeVideoId)
+      const startedAnalysis = await startVideoAnalysis(analysisYoutubeId, accessToken)
       const nextTargetId =
-        startedAnalysis.targetId || analysisTargetId || inferAnalysisTargetId(videoDetail.raw)
+        startedAnalysis.targetId ??
+        startedAnalysis.analysisResult?.targetId ??
+        null
 
-      if (!nextTargetId) {
+      if (startedAnalysis.analysisResult) {
+        if (nextTargetId !== null && nextTargetId !== undefined) {
+          setAnalysisTargetId(nextTargetId)
+        }
+
+        setHasCheckedExistingAnalysis(true)
+        setAnalysisResult(startedAnalysis.analysisResult)
+        return
+      }
+
+      if (nextTargetId === null || nextTargetId === undefined) {
         throw new Error('분석 대상 ID를 찾지 못했습니다. 잠시 후 다시 시도해 주세요.')
       }
 
       setAnalysisTargetId(nextTargetId)
       setHasCheckedExistingAnalysis(true)
 
-      const nextAnalysisResult = await pollAnalysisResult(nextTargetId)
+      const nextAnalysisResult = await pollAnalysisResult(nextTargetId, accessToken)
 
       setAnalysisResult(nextAnalysisResult)
     } catch (error) {
