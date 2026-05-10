@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Navbar from '../components/Navbar'
+import YoutubeThumbnail from '../components/YoutubeThumbnail'
 import { deleteMyAccount, fetchMyProfile, updateMyProfile } from '../services/auth'
 import { deleteScrapVideo, fetchScrapVideos } from '../services/scraps'
 import './MyPage.css'
@@ -687,15 +688,13 @@ function MyPage({ isLoggedIn, onAuthClick, onLogout, onProfileUpdate, user }) {
                         onClick={() => handleOpenScrapVideo(scrapItem)}
                       >
                         <div className="my-page__scrap-thumb-shell">
-                          {scrapItem.thumbnailUrl ? (
-                            <img
-                              className="my-page__scrap-thumb"
-                              src={scrapItem.thumbnailUrl}
-                              alt={scrapItem.title}
-                            />
-                          ) : (
-                            <div className="my-page__scrap-placeholder">NNW SCRAP</div>
-                          )}
+                          <YoutubeThumbnail
+                            className="my-page__scrap-thumb"
+                            src={scrapItem.thumbnailUrl}
+                            youtubeVideoId={scrapItem.youtubeVideoId}
+                            alt={scrapItem.title}
+                            placeholder={<div className="my-page__scrap-placeholder">NNW SCRAP</div>}
+                          />
                           <span className="my-page__scrap-badge">스크랩</span>
                         </div>
 

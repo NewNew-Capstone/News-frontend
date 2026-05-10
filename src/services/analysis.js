@@ -206,6 +206,40 @@ function normalizeHighlightSpan(span, index) {
   }
 }
 
+function pickFirstDefined(source, keys, fallback = '') {
+  for (const key of keys) {
+    const value = source?.[key]
+
+    if (value !== undefined && value !== null && value !== '') {
+      return value
+    }
+  }
+
+  return fallback
+}
+
+function pickArray(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key]
+
+    if (Array.isArray(value)) {
+      return value
+    }
+  }
+
+  return []
+}
+
+function normalizeScore(value) {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+
+  const numericValue = Number(value)
+
+  return Number.isNaN(numericValue) ? null : numericValue
+}
+
 function hasAnalysisResultShape(source) {
   if (!source || typeof source !== 'object') {
     return false
@@ -216,6 +250,10 @@ function hasAnalysisResultShape(source) {
     'overallBiasScore' in source ||
     'summary_text' in source ||
     'summaryText' in source ||
+    'perspective_summary' in source ||
+    'perspectiveSummary' in source ||
+    'evidence_summary' in source ||
+    'evidenceSummary' in source ||
     'tone_label' in source ||
     'toneLabel' in source
   )
@@ -226,29 +264,38 @@ function normalizeAnalysisResult(source) {
 
   return {
     targetId: extractTargetId(responseBody) ?? extractTargetId(source),
-    overallBiasScore: Number(responseBody.overall_bias_score),
-    opinionScore: Number(responseBody.opinion_score),
-    emotionScore: Number(responseBody.emotion_score),
-    anonymousSourceScore: Number(responseBody.anonymous_source_score),
-    headlineBodyGapScore: Number(responseBody.headline_body_gap_score),
-    neutralityScore:
-      responseBody.neutrality_score === null || responseBody.neutrality_score === undefined
-        ? null
-        : Number(responseBody.neutrality_score),
-    summaryText: responseBody.summary_text || '',
-    perspectiveSummary: responseBody.perspective_summary || '',
-    evidenceSummary: responseBody.evidence_summary || '',
-    toneLabel: responseBody.tone_label || '',
-    keywords: (Array.isArray(responseBody.keywords) ? responseBody.keywords : [])
+    overallBiasScore: normalizeScore(pickFirstDefined(responseBody, ['overall_bias_score', 'overallBiasScore'], null)),
+    opinionScore: normalizeScore(pickFirstDefined(responseBody, ['opinion_score', 'opinionScore'], null)),
+    emotionScore: normalizeScore(pickFirstDefined(responseBody, ['emotion_score', 'emotionScore'], null)),
+    anonymousSourceScore: normalizeScore(
+      pickFirstDefined(responseBody, ['anonymous_source_score', 'anonymousSourceScore'], null),
+    ),
+    headlineBodyGapScore: normalizeScore(
+      pickFirstDefined(responseBody, ['headline_body_gap_score', 'headlineBodyGapScore'], null),
+    ),
+    neutralityScore: normalizeScore(pickFirstDefined(responseBody, ['neutrality_score', 'neutralityScore'], null)),
+    summaryText: pickFirstDefined(responseBody, ['summary_text', 'summaryText'], ''),
+    perspectiveSummary: pickFirstDefined(
+      responseBody,
+      ['perspective_summary', 'perspectiveSummary', 'viewpoint_summary', 'viewpointSummary'],
+      '',
+    ),
+    evidenceSummary: pickFirstDefined(
+      responseBody,
+      ['evidence_summary', 'evidenceSummary', 'basis_summary', 'basisSummary'],
+      '',
+    ),
+    toneLabel: pickFirstDefined(responseBody, ['tone_label', 'toneLabel'], ''),
+    keywords: pickArray(responseBody, ['keywords'])
       .map((keyword) => normalizeKeyword(keyword))
       .filter(Boolean),
-    sentenceLabels: (Array.isArray(responseBody.sentence_labels) ? responseBody.sentence_labels : [])
+    sentenceLabels: pickArray(responseBody, ['sentence_labels', 'sentenceLabels'])
       .map((label, index) => normalizeSentenceLabel(label, index))
       .filter(Boolean),
-    highlightSpans: (Array.isArray(responseBody.highlight_spans) ? responseBody.highlight_spans : [])
+    highlightSpans: pickArray(responseBody, ['highlight_spans', 'highlightSpans'])
       .map((span, index) => normalizeHighlightSpan(span, index))
       .filter(Boolean),
-    evidences: Array.isArray(responseBody.evidences) ? responseBody.evidences : [],
+    evidences: pickArray(responseBody, ['evidences']),
   }
 }
 

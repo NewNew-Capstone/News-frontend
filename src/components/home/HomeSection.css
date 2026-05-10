@@ -213,6 +213,9 @@
 }
 
 .home-section__stat-bubble {
+  --stat-bubble-drift-x: 0px;
+  --stat-bubble-rotation-start: 0deg;
+  --stat-bubble-rotation-end: 0deg;
   position: absolute;
   z-index: 2;
   display: flex;
@@ -227,14 +230,26 @@
     0 18px 34px rgba(133, 160, 215, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(12px);
+  transform: translate3d(0, 0, 0) rotate(var(--stat-bubble-rotation-start));
+  will-change: transform;
+}
+
+.home-section--active .home-section__stat-bubble {
+  animation: homeSectionStatBubbleFloat 3.6s ease-in-out infinite;
 }
 
 .home-section__stat-bubble--tl {
+  --stat-bubble-drift-x: -6px;
+  --stat-bubble-rotation-start: -1.5deg;
+  --stat-bubble-rotation-end: 1deg;
   top: 14%;
   left: -3%;
 }
 
 .home-section__stat-bubble--br {
+  --stat-bubble-drift-x: 6px;
+  --stat-bubble-rotation-start: 1.25deg;
+  --stat-bubble-rotation-end: -1deg;
   right: -4%;
   bottom: 18%;
 }
@@ -828,6 +843,17 @@
   }
 }
 
+@keyframes homeSectionStatBubbleFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(var(--stat-bubble-rotation-start));
+  }
+
+  50% {
+    transform: translate3d(var(--stat-bubble-drift-x), -14px, 0) rotate(var(--stat-bubble-rotation-end));
+  }
+}
+
 @keyframes homePreviewCubeSpin {
   0% {
     transform: rotateX(-14deg) rotateY(24deg);
@@ -1138,6 +1164,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .home-section__preview-cube,
+  .home-section__stat-bubble,
   .home-section__preview-glass::before,
   .home-section__preview-glass::after {
     animation: none;

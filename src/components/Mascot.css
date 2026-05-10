@@ -8,87 +8,167 @@
   width: 100%;
   height: auto;
   filter:
-    drop-shadow(0 28px 52px rgba(79, 150, 255, 0.38))
-    drop-shadow(0 0 24px rgba(107, 163, 255, 0.18));
+    drop-shadow(0 24px 48px rgba(49, 130, 246, 0.24))
+    drop-shadow(0  0   22px rgba(107, 163, 255, 0.10));
 }
 
-/* Floating body animation */
+/* ── Main float ── */
 .mascot__float {
-  animation: mascotFloat 3.4s ease-in-out infinite;
+  animation: mascotFloat 3.6s ease-in-out infinite;
 }
 
-/* Shadow shrinks when mascot rises */
+/* ── Ground shadow shrinks as body rises ── */
 .mascot__shadow {
-  animation: mascotShadow 3.4s ease-in-out infinite;
-  transform-origin: 80px 184px;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mascotShadow 3.6s ease-in-out infinite;
 }
 
-/* Full eye blink — animate the entire eye group so whites/iris/pupil all squish together */
+/* ── Antenna ball pulse ── */
+.mascot__antenna-ball {
+  animation: mascotAntenna 1.4s ease-in-out infinite;
+}
+.mascot__antenna-aura {
+  animation: mascotAntennaAura 1.4s ease-in-out infinite;
+}
+
+/* ── Eye blink ── */
 .mascot__eye-left,
 .mascot__eye-right {
   transform-box: fill-box;
   transform-origin: center;
-  animation: mascotBlink 5.2s ease-in-out infinite;
+  animation: mascotBlink 5.8s ease-in-out infinite, mascotEyeGlow 3.6s ease-in-out infinite;
 }
-
-/* Tiny offset so both eyes don't blink in perfect robotic sync */
 .mascot__eye-right {
-  animation-delay: 40ms;
+  animation-delay: 60ms, 0.6s;
 }
 
-/* News badge bobs slightly offset from body */
+/* ── Arm sway (in sync with float) ── */
+.mascot__arm-left {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;   /* rotate at shoulder */
+  animation: mascotArmLeft 3.6s ease-in-out infinite;
+}
+.mascot__arm-right {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: mascotArmRight 3.6s ease-in-out infinite;
+}
+
+/* ── Forehead LED pulse ── */
+.mascot__led-center {
+  animation: mascotLed 1.8s ease-in-out infinite;
+}
+
+/* ── Chest scanline ── */
+.mascot__scanline {
+  transform-box: fill-box;
+  transform-origin: top center;
+  animation: mascotScanline 2.4s linear infinite;
+}
+
+/* ── 뉴뉴 badge independent float ── */
 .mascot__badge {
-  animation: mascotBadge 3.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mascotBadge 3.9s ease-in-out infinite 1.0s;
 }
 
-/* Sparkle particles */
+/* ── Sparkle particles ── */
 .mascot__sparkle {
   transform-box: fill-box;
   transform-origin: center;
 }
-.mascot__sparkle--1 { animation: mascotSparkle 2.6s ease-in-out infinite; }
-.mascot__sparkle--2 { animation: mascotSparkle 3.1s ease-in-out infinite 0.45s; }
-.mascot__sparkle--3 { animation: mascotSparkle 2.8s ease-in-out infinite 0.9s; }
-.mascot__sparkle--4 { animation: mascotSparkle 3.4s ease-in-out infinite 1.3s; }
-.mascot__sparkle--5 { animation: mascotSparkle 2.5s ease-in-out infinite 0.65s; }
-.mascot__sparkle--6 { animation: mascotSparkle 3.0s ease-in-out infinite 1.8s; }
+.mascot__sparkle--1 { animation: mascotSparkle 2.8s ease-in-out infinite 0.0s; }
+.mascot__sparkle--2 { animation: mascotSparkle 3.3s ease-in-out infinite 0.5s; }
+.mascot__sparkle--3 { animation: mascotSparkle 2.5s ease-in-out infinite 1.0s; }
+.mascot__sparkle--4 { animation: mascotSparkle 3.6s ease-in-out infinite 1.5s; }
+.mascot__sparkle--5 { animation: mascotSparkle 2.4s ease-in-out infinite 0.7s; }
+.mascot__sparkle--6 { animation: mascotSparkle 3.1s ease-in-out infinite 2.1s; }
 
-/* ── Keyframes ── */
+/* ══════════════════════════════
+   KEYFRAMES
+══════════════════════════════ */
 
 @keyframes mascotFloat {
-  0%, 100% { transform: translateY(0px); }
+  0%, 100% { transform: translateY(0px);   }
   50%       { transform: translateY(-14px); }
 }
 
 @keyframes mascotShadow {
-  0%, 100% { transform: scaleX(1);    opacity: 0.10; }
-  50%       { transform: scaleX(0.65); opacity: 0.05; }
+  0%, 100% { transform: scaleX(1);    opacity: 1;    }
+  50%       { transform: scaleX(0.58); opacity: 0.50; }
 }
 
-/* Whole-eye squish — now looks like a real eyelid closing */
+@keyframes mascotAntenna {
+  0%, 100% { opacity: 1;   }
+  50%       { opacity: 0.3; }
+}
+@keyframes mascotAntennaAura {
+  0%, 100% { opacity: 1;    transform: scale(1);    }
+  50%       { opacity: 0.25; transform: scale(0.85); }
+}
+
+@keyframes mascotEyeGlow {
+  0%, 100% { filter: brightness(1)   drop-shadow(0 0 0px rgba(49,130,246,0)); }
+  50%       { filter: brightness(1.1) drop-shadow(0 0 6px rgba(49,130,246,0.55)); }
+}
+
 @keyframes mascotBlink {
-  0%, 88%, 100% { transform: scaleY(1); }
-  93%            { transform: scaleY(0.07); }
-  96%            { transform: scaleY(1); }
-  98%            { transform: scaleY(0.1); }
+  0%, 87%, 100% { transform: scaleY(1);    }
+  91%            { transform: scaleY(0.06); }
+  93%            { transform: scaleY(1);    }
+  96%            { transform: scaleY(0.08); }
+  98%            { transform: scaleY(1);    }
+}
+
+@keyframes mascotArmLeft {
+  0%, 100% { transform: rotate(0deg);  }
+  30%       { transform: rotate(-5deg); }
+  70%       { transform: rotate(3deg);  }
+}
+@keyframes mascotArmRight {
+  0%, 100% { transform: rotate(0deg); }
+  30%       { transform: rotate(5deg); }
+  70%       { transform: rotate(-3deg); }
+}
+
+@keyframes mascotLed {
+  0%, 100% { opacity: 0.80; }
+  50%       { opacity: 1;    }
+}
+
+@keyframes mascotScanline {
+  0%        { transform: translateY(0px);  opacity: 0.14; }
+  85%       { transform: translateY(28px); opacity: 0.14; }
+  100%      { transform: translateY(28px); opacity: 0;    }
 }
 
 @keyframes mascotBadge {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50%       { transform: translateY(-10px) rotate(2deg); }
+  0%, 100% { transform: translateY(0px)   rotate(1deg);   }
+  50%       { transform: translateY(-11px) rotate(-1.5deg); }
 }
 
 @keyframes mascotSparkle {
-  0%, 100% { transform: scale(1) rotate(0deg);    opacity: 0.22; }
-  40%       { transform: scale(1.6) rotate(18deg); opacity: 0.75; }
-  70%       { transform: scale(0.8) rotate(-8deg); opacity: 0.38; }
+  0%, 100% { transform: scale(1)    rotate(0deg);   opacity: 0.18; }
+  40%       { transform: scale(1.85) rotate(26deg);  opacity: 0.86; }
+  70%       { transform: scale(0.6)  rotate(-15deg); opacity: 0.22; }
 }
 
+/* ── Respect reduced-motion ── */
 @media (prefers-reduced-motion: reduce) {
   .mascot__float,
   .mascot__shadow,
+  .mascot__antenna-ball,
+  .mascot__antenna-aura,
+  .mascot__eye-left,
+  .mascot__eye-right { filter: none; }
   .mascot__eye-left,
   .mascot__eye-right,
+  .mascot__arm-left,
+  .mascot__arm-right,
+  .mascot__led-center,
+  .mascot__scanline,
   .mascot__badge,
   .mascot__sparkle {
     animation: none;
