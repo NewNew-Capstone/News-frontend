@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import YoutubeThumbnail from './YoutubeThumbnail'
 import './RotatingArticleCarousel.css'
 
 function ArrowIcon({ direction = 'right' }) {
@@ -230,11 +231,12 @@ function RotatingArticleCarousel({
                     tabIndex={isVisible ? 0 : -1}
                   >
                     <div className="rotating-article-carousel__media">
-                      {article.image ? (
-                        <img src={article.image} alt={article.title} />
-                      ) : (
-                        <div className="rotating-article-carousel__placeholder" />
-                      )}
+                      <YoutubeThumbnail
+                        src={article.image}
+                        youtubeVideoId={article.youtubeVideoId}
+                        alt={article.title}
+                        placeholder={<div className="rotating-article-carousel__placeholder" />}
+                      />
                     </div>
 
                     <div className="rotating-article-carousel__body">

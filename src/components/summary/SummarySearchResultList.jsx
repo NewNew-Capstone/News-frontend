@@ -1,3 +1,4 @@
+import YoutubeThumbnail from '../YoutubeThumbnail'
 import './SummarySearchResultList.css'
 
 function SummarySearchResultList({ title, articles, onToggleScrap, onOpenVideo }) {
@@ -14,13 +15,16 @@ function SummarySearchResultList({ title, articles, onToggleScrap, onOpenVideo }
               onClick={() => onOpenVideo?.(article.youtubeVideoId)}
             >
               <div className="summary-search-results__thumb">
-                {article.image ? (
-                  <img src={article.image} alt={article.title} />
-                ) : (
-                  <div className="summary-search-results__thumb-placeholder">
-                    <span>영상 화면</span>
-                  </div>
-                )}
+                <YoutubeThumbnail
+                  src={article.image}
+                  youtubeVideoId={article.youtubeVideoId}
+                  alt={article.title}
+                  placeholder={
+                    <div className="summary-search-results__thumb-placeholder">
+                      <span>영상 화면</span>
+                    </div>
+                  }
+                />
               </div>
 
               <div className="summary-search-results__body">

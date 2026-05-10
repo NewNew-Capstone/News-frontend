@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Navbar from '../components/Navbar'
+import YoutubeThumbnail from '../components/YoutubeThumbnail'
 import { fetchVideoAnalysisResult, startVideoAnalysis } from '../services/analysis'
 import {
   createScrapLookup,
@@ -12,6 +13,7 @@ import {
   fetchYoutubeComments,
   fetchYoutubeVideoDetail,
 } from '../services/youtube'
+import { normalizeYoutubeVideoId } from '../utils/youtubeVideo'
 import './VideoSummaryDetail.css'
 
 const ANALYSIS_POLL_ATTEMPTS = 8
@@ -164,21 +166,32 @@ function formatDateLabel(value, fallback = '날짜 정보 없음') {
 }
 
 function extractYoutubeVideoId(source, fallback = '') {
-  const explicitId = pickFirst(source, ['youtubeVideoId', 'youtubeVideoID'], '')
+  const explicitId = normalizeYoutubeVideoId(pickFirst(source, ['youtubeVideoId', 'youtubeVideoID'], ''))
 
-  if (typeof explicitId === 'string' && explicitId.trim()) {
-    return explicitId.trim()
+  if (explicitId) {
+    return explicitId
   }
 
-  const fallbackCandidates = [source?.videoId, source?.id]
+  const fallbackCandidates = [
+    source?.videoId,
+    source?.id,
+    source?.originalUrl,
+    source?.url,
+    source?.videoUrl,
+    source?.youtubeUrl,
+    source?.thumbnailUrl,
+    source?.thumbnail,
+  ]
 
   for (const candidate of fallbackCandidates) {
-    if (typeof candidate === 'string' && candidate.trim() && !/^\d+$/.test(candidate.trim())) {
-      return candidate.trim()
+    const normalizedCandidate = normalizeYoutubeVideoId(candidate)
+
+    if (normalizedCandidate) {
+      return normalizedCandidate
     }
   }
 
-  return fallback
+  return normalizeYoutubeVideoId(fallback) || fallback
 }
 
 function extractAnalysisYoutubeId(source, fallback = '') {
@@ -497,6 +510,13 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const isSummaryToggleVisible = summaryText.length > 180
   const isSummaryCollapsed = isSummaryToggleVisible && !isSummaryExpanded
 
+  const emotionScoreCard = {
+    key: 'emotion',
+    label: '감정 표현도',
+    value: analysisResult?.emotionScore ?? null,
+    description: '감정적으로 몰아가는 표현이 얼마나 자주 등장하는지 나타냅니다.',
+  }
+
   const scoreCards = [
     {
       key: 'overall-bias',
@@ -509,12 +529,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       label: '의견 개입도',
       value: analysisResult?.opinionScore ?? null,
       description: '사실 전달 대신 해석이나 주장 비중이 얼마나 큰지 보여줍니다.',
-    },
-    {
-      key: 'emotion',
-      label: '감정 표현도',
-      value: analysisResult?.emotionScore ?? null,
-      description: '감정적으로 몰아가는 표현이 얼마나 자주 등장하는지 나타냅니다.',
     },
     {
       key: 'anonymous-source',
@@ -567,7 +581,29 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     },
   ]
   const analysisKeywordItems = keywordItems.slice(0, 8)
-  const analysisHighlightItems = sentenceLabelItems.slice(0, 4)
+
+  const renderScoreCard = (scoreCard) => {
+    const percentage = clampPercentage(scoreCard.value)
+
+    return (
+      <article
+        key={scoreCard.key}
+        className="video-summary-detail-page__analysis-score-card"
+      >
+        <div className="video-summary-detail-page__analysis-score-head">
+          <strong>{scoreCard.label}</strong>
+          <span>{formatScorePercent(scoreCard.value)}</span>
+        </div>
+        <div className="video-summary-detail-page__analysis-score-track">
+          <span
+            className="video-summary-detail-page__analysis-score-fill"
+            style={{ width: `${percentage ?? 0}%` }}
+          />
+        </div>
+        <p>{scoreCard.description}</p>
+      </article>
+    )
+  }
 
   const renderRecommendationCard = (recommendation) => (
     <article
@@ -596,11 +632,12 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
         onClick={() => handleOpenRecommendation(recommendation.youtubeVideoId)}
       >
         <div className="video-summary-detail-page__recommendation-thumb">
-          {recommendation.thumbnailUrl ? (
-            <img src={recommendation.thumbnailUrl} alt={recommendation.title} />
-          ) : (
-            <div className="video-summary-detail-page__recommendation-placeholder" />
-          )}
+          <YoutubeThumbnail
+            src={recommendation.thumbnailUrl}
+            youtubeVideoId={recommendation.youtubeVideoId}
+            alt={recommendation.title}
+            placeholder={<div className="video-summary-detail-page__recommendation-placeholder" />}
+          />
         </div>
 
         <div className="video-summary-detail-page__recommendation-body">
@@ -1033,13 +1070,16 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                           rel="noreferrer"
                           aria-label={`${videoDetail.title} 원본 영상 열기`}
                         >
-                          {videoDetail.thumbnailUrl ? (
-                            <img src={videoDetail.thumbnailUrl} alt={videoDetail.title} />
-                          ) : (
-                            <div className="video-summary-detail-page__hero-placeholder">
-                              <span>NNW VIDEO</span>
-                            </div>
-                          )}
+                          <YoutubeThumbnail
+                            src={videoDetail.thumbnailUrl}
+                            youtubeVideoId={videoDetail.youtubeVideoId}
+                            alt={videoDetail.title}
+                            placeholder={
+                              <div className="video-summary-detail-page__hero-placeholder">
+                                <span>NNW VIDEO</span>
+                              </div>
+                            }
+                          />
 
                           <span className="video-summary-detail-page__hero-play">
                             <PlayIcon />
@@ -1138,6 +1178,8 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                         </article>
                       ) : null}
 
+                      {renderScoreCard(emotionScoreCard)}
+
                       {analysisResult?.evidenceSummary ? (
                         <article className="video-summary-detail-page__analysis-detail-card">
                           <div className="video-summary-detail-page__analysis-detail-head">
@@ -1156,57 +1198,8 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                         </div>
 
                         <div className="video-summary-detail-page__analysis-score-grid video-summary-detail-page__analysis-score-grid--detail">
-                          {scoreCards.map((scoreCard) => {
-                            const percentage = clampPercentage(scoreCard.value)
-
-                            return (
-                              <article
-                                key={scoreCard.key}
-                                className="video-summary-detail-page__analysis-score-card"
-                              >
-                                <div className="video-summary-detail-page__analysis-score-head">
-                                  <strong>{scoreCard.label}</strong>
-                                  <span>{formatScorePercent(scoreCard.value)}</span>
-                                </div>
-                                <div className="video-summary-detail-page__analysis-score-track">
-                                  <span
-                                    className="video-summary-detail-page__analysis-score-fill"
-                                    style={{ width: `${percentage ?? 0}%` }}
-                                  />
-                                </div>
-                                <p>{scoreCard.description}</p>
-                              </article>
-                            )
-                          })}
+                          {scoreCards.map(renderScoreCard)}
                         </div>
-                      </article>
-
-                      <article className="video-summary-detail-page__analysis-detail-card">
-                        <div className="video-summary-detail-page__analysis-detail-head">
-                          <h3>하이라이트 포인트</h3>
-                          <span>{analysisHighlightItems.length}개 문장</span>
-                        </div>
-
-                        {analysisHighlightItems.length ? (
-                          <div className="video-summary-detail-page__analysis-label-list">
-                            {analysisHighlightItems.map((label) => (
-                              <article
-                                key={label.id}
-                                className="video-summary-detail-page__analysis-label-item"
-                              >
-                                <div>
-                                  <strong>{formatSentenceLabelType(label.labelType)}</strong>
-                                  <p>문장 ID {label.contentSentenceId ?? '-'} 에서 감지됐습니다.</p>
-                                </div>
-                                <span>{formatScorePercent(label.score)}</span>
-                              </article>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="video-summary-detail-page__analysis-empty">
-                            아직 표시할 하이라이트 포인트가 없습니다.
-                          </p>
-                        )}
                       </article>
                     </div>
                   </div>
@@ -1245,13 +1238,16 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                       rel="noreferrer"
                       aria-label={`${videoDetail.title} 원본 영상 열기`}
                     >
-                      {videoDetail.thumbnailUrl ? (
-                        <img src={videoDetail.thumbnailUrl} alt={videoDetail.title} />
-                      ) : (
-                        <div className="video-summary-detail-page__hero-placeholder">
-                          <span>NNW VIDEO</span>
-                        </div>
-                      )}
+                      <YoutubeThumbnail
+                        src={videoDetail.thumbnailUrl}
+                        youtubeVideoId={videoDetail.youtubeVideoId}
+                        alt={videoDetail.title}
+                        placeholder={
+                          <div className="video-summary-detail-page__hero-placeholder">
+                            <span>NNW VIDEO</span>
+                          </div>
+                        }
+                      />
 
                       <span className="video-summary-detail-page__hero-play">
                         <PlayIcon />
@@ -1339,28 +1335,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                         ) : null}
 
                         <div className="video-summary-detail-page__analysis-score-grid">
-                          {scoreCards.map((scoreCard) => {
-                            const percentage = clampPercentage(scoreCard.value)
-
-                            return (
-                              <article
-                                key={scoreCard.key}
-                                className="video-summary-detail-page__analysis-score-card"
-                              >
-                                <div className="video-summary-detail-page__analysis-score-head">
-                                  <strong>{scoreCard.label}</strong>
-                                  <span>{formatScorePercent(scoreCard.value)}</span>
-                                </div>
-                                <div className="video-summary-detail-page__analysis-score-track">
-                                  <span
-                                    className="video-summary-detail-page__analysis-score-fill"
-                                    style={{ width: `${percentage ?? 0}%` }}
-                                  />
-                                </div>
-                                <p>{scoreCard.description}</p>
-                              </article>
-                            )
-                          })}
+                          {scoreCards.map(renderScoreCard)}
                         </div>
 
                         <div className="video-summary-detail-page__analysis-summary-grid">
@@ -1370,6 +1345,8 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                               <p>{analysisResult.perspectiveSummary}</p>
                             </article>
                           ) : null}
+
+                          {renderScoreCard(emotionScoreCard)}
 
                           {analysisResult.evidenceSummary ? (
                             <article className="video-summary-detail-page__analysis-summary-block">
@@ -1531,14 +1508,14 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                             onClick={() => handleOpenRecommendation(recommendation.youtubeVideoId)}
                           >
                             <div className="video-summary-detail-page__recommendation-thumb">
-                              {recommendation.thumbnailUrl ? (
-                                <img
-                                  src={recommendation.thumbnailUrl}
-                                  alt={recommendation.title}
-                                />
-                              ) : (
-                                <div className="video-summary-detail-page__recommendation-placeholder" />
-                              )}
+                              <YoutubeThumbnail
+                                src={recommendation.thumbnailUrl}
+                                youtubeVideoId={recommendation.youtubeVideoId}
+                                alt={recommendation.title}
+                                placeholder={
+                                  <div className="video-summary-detail-page__recommendation-placeholder" />
+                                }
+                              />
                             </div>
 
                             <div className="video-summary-detail-page__recommendation-body">

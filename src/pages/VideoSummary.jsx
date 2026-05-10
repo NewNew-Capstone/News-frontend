@@ -14,6 +14,7 @@ import {
   fetchRecommendedChannelVideos,
   fetchYoutubeSearchResults,
 } from '../services/youtube'
+import { normalizeYoutubeVideoId } from '../utils/youtubeVideo'
 import './VideoSummary.css'
 
 const NEWS_POLITICS_KEYWORD_FALLBACK = ['정치 이슈', '국회', '북한']
@@ -79,13 +80,20 @@ function buildMetaText(video) {
 }
 
 function createVideoCard(video, scrapLookup, index) {
-  const youtubeVideoId = pickFirst(video, ['youtubeVideoId', 'videoId', 'id'], '')
+  const rawYoutubeVideoId = pickFirst(video, ['youtubeVideoId', 'videoId', 'id'], '')
+  const fallbackYoutubeSource = pickFirst(
+    video,
+    ['originalUrl', 'url', 'videoUrl', 'youtubeUrl', 'thumbnailUrl', 'thumbnail', 'thumbnailURL', 'thumbUrl'],
+    '',
+  )
+  const youtubeVideoId =
+    normalizeYoutubeVideoId(rawYoutubeVideoId) || normalizeYoutubeVideoId(fallbackYoutubeSource)
   const id = pickFirst(
     video,
     ['youtubeVideoId', 'videoId', 'id', 'originalUrl', 'url'],
     `video-${index + 1}`,
   )
-  const normalizedYoutubeVideoId = youtubeVideoId || id
+  const normalizedYoutubeVideoId = youtubeVideoId || normalizeYoutubeVideoId(id) || id
   const scrapItem = scrapLookup[normalizedYoutubeVideoId] || null
   const title = pickFirst(video, ['title', 'videoTitle', 'name'], '영상 제목 정보가 없습니다.')
   const publishedAt = pickFirst(video, ['publishedAt', 'publishedDate', 'published_at', 'uploadDate'])

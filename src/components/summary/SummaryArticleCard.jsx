@@ -1,3 +1,4 @@
+import YoutubeThumbnail from '../YoutubeThumbnail'
 import './SummaryArticleCard.css'
 
 function SummaryArticleCard({ article, publisherId, onToggleScrap, onOpenVideo }) {
@@ -25,13 +26,16 @@ function SummaryArticleCard({ article, publisherId, onToggleScrap, onOpenVideo }
         onClick={() => onOpenVideo?.(article.youtubeVideoId)}
       >
         <div className="summary-article-card__image">
-          {article.image ? (
-            <img src={article.image} alt={article.title} />
-          ) : (
-            <div className="summary-article-card__image-placeholder">
-              <span>영상 썸네일</span>
-            </div>
-          )}
+          <YoutubeThumbnail
+            src={article.image}
+            youtubeVideoId={article.youtubeVideoId}
+            alt={article.title}
+            placeholder={
+              <div className="summary-article-card__image-placeholder">
+                <span>영상 썸네일</span>
+              </div>
+            }
+          />
         </div>
 
         <div className="summary-article-card__body">
