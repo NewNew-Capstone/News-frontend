@@ -202,11 +202,22 @@ function App() {
     window.location.hash = '#home'
   }
 
+  const chatContext =
+    routeState.name === 'summary-detail' && routeState.videoId
+      ? {
+          pageType: 'VIDEO_ANALYSIS',
+          videoId: routeState.videoId,
+        }
+      : {
+          pageType: routeState.name.toUpperCase().replace(/-/g, '_'),
+        }
+
   const renderWithChatbot = (page) => (
     <>
       {page}
       <ChatbotWidget
         accessToken={accessToken}
+        context={chatContext}
         isLoggedIn={isLoggedIn}
         onLoginClick={handleMoveToLogin}
         user={authSession?.user}

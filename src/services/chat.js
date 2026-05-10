@@ -241,7 +241,7 @@ export async function fetchChatMessages(sessionId, accessToken = getAccessToken(
   return messages.map((message, index) => normalizeChatMessage(message, index)).filter(Boolean)
 }
 
-export async function sendChatMessage(sessionId, content, accessToken = getAccessToken()) {
+export async function sendChatMessage(sessionId, content, accessToken = getAccessToken(), context = null) {
   const normalizedSessionId = String(sessionId ?? '').trim()
   const normalizedContent = typeof content === 'string' ? content.trim() : ''
 
@@ -253,12 +253,18 @@ export async function sendChatMessage(sessionId, content, accessToken = getAcces
     throw new Error('메시지를 입력해 주세요.')
   }
 
+  const requestBody = { content: normalizedContent }
+
+  if (context && typeof context === 'object') {
+    requestBody.context = context
+  }
+
   const payload = await requestJson(
     `/api/v1/chat/sessions/${encodeURIComponent(normalizedSessionId)}/messages`,
     {
       method: 'POST',
       accessToken,
-      body: { content: normalizedContent },
+      body: requestBody,
       fallbackErrorMessage: '메시지 전송에 실패했습니다.',
     },
   )
