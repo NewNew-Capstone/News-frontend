@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Navbar from '../components/Navbar'
 import RotatingArticleCarousel from '../components/RotatingArticleCarousel'
+import YoutubeThumbnail from '../components/YoutubeThumbnail'
 import { fetchIssueComparison, fetchIssueSearchResults } from '../services/issues'
 import { fetchRecommendedChannelVideos } from '../services/youtube'
 import './CountryCompare.css'
@@ -693,7 +694,12 @@ function CountryCompare({ isLoggedIn, onAuthClick }) {
                         {section.articles.map((article) => (
                           <button key={article.id} className="country-compare-page__video-card" type="button" onClick={() => handleOpenVideo(article.youtubeVideoId)}>
                             <div className="country-compare-page__video-thumb">
-                              {article.image ? <img src={article.image} alt={article.title} /> : <div className="country-compare-page__video-placeholder" />}
+                              <YoutubeThumbnail
+                                src={article.image}
+                                youtubeVideoId={article.youtubeVideoId}
+                                alt={article.title}
+                                placeholder={<div className="country-compare-page__video-placeholder" />}
+                              />
                               {article.isRepresentative ? <span className="country-compare-page__badge">대표 영상</span> : null}
                             </div>
                             <div className="country-compare-page__video-body">
@@ -740,7 +746,12 @@ function CountryCompare({ isLoggedIn, onAuthClick }) {
                         return (
                           <article key={country.countryCode} className="country-compare-page__comparison-card">
                             <button className="country-compare-page__comparison-thumb" type="button" onClick={() => handleOpenVideo(country.youtubeVideoId)}>
-                              {country.thumbnailUrl ? <img src={country.thumbnailUrl} alt={country.title} /> : <div className="country-compare-page__video-placeholder" />}
+                              <YoutubeThumbnail
+                                src={country.thumbnailUrl}
+                                youtubeVideoId={country.youtubeVideoId}
+                                alt={country.title}
+                                placeholder={<div className="country-compare-page__video-placeholder" />}
+                              />
                             </button>
                             <div className="country-compare-page__comparison-head">
                               <div>

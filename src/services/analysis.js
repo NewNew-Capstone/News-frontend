@@ -79,6 +79,60 @@ function extractResponseBody(payload) {
   return payload
 }
 
+function normalizeNumericLikeValue(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim()
+
+    if (/^\d+$/.test(trimmedValue)) {
+      return Number(trimmedValue)
+    }
+  }
+
+  return null
+}
+
+function extractTargetId(source, depth = 0) {
+  if (!source || typeof source !== 'object' || depth > 4) {
+    return null
+  }
+
+  const directTargetId = normalizeNumericLikeValue(
+    source.target_id ??
+      source.targetId ??
+      source.analysis_target_id ??
+      source.analysisTargetId ??
+      source.analysis_id ??
+      source.analysisId ??
+      source.videoPk ??
+      source.video_pk ??
+      source.youtubeVideoPk ??
+      source.youtube_video_pk ??
+      source.dbId ??
+      source.db_id ??
+      source.pk ??
+      source.id ??
+      null,
+  )
+
+  if (directTargetId !== null) {
+    return directTargetId
+  }
+
+  for (const key of ['body', 'data', 'result', 'response', 'target', 'analysis']) {
+    const nestedTargetId = extractTargetId(source[key], depth + 1)
+
+    if (nestedTargetId !== null) {
+      return nestedTargetId
+    }
+  }
+
+  return null
+}
+
 async function requestJson(path, { method = 'GET', accessToken = getAccessToken() } = {}) {
   if (!accessToken) {
     throw new Error('영상 분석 기능을 사용하려면 다시 로그인해 주세요.')
@@ -136,16 +190,125 @@ function normalizeSentenceLabel(label, index) {
   }
 }
 
-export async function startVideoAnalysis(youtubeVideoId, accessToken = getAccessToken()) {
-  const normalizedYoutubeVideoId =
-    typeof youtubeVideoId === 'string' ? youtubeVideoId.trim() : String(youtubeVideoId || '').trim()
+function normalizeHighlightSpan(span, index) {
+  if (!span || typeof span !== 'object') {
+    return null
+  }
 
-  if (!normalizedYoutubeVideoId) {
+  return {
+    id: `${span.content_sentence_id || span.contentSentenceId || 'highlight'}-${index}`,
+    contentSentenceId: span.content_sentence_id || span.contentSentenceId || null,
+    startOffset: span.start_offset ?? span.startOffset ?? null,
+    endOffset: span.end_offset ?? span.endOffset ?? null,
+    labelType: span.label_type || span.labelType || '',
+    score: Number(span.score),
+    matchedWord: span.matched_word || span.matchedWord || '',
+  }
+}
+
+function pickFirstDefined(source, keys, fallback = '') {
+  for (const key of keys) {
+    const value = source?.[key]
+
+    if (value !== undefined && value !== null && value !== '') {
+      return value
+    }
+  }
+
+  return fallback
+}
+
+function pickArray(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key]
+
+    if (Array.isArray(value)) {
+      return value
+    }
+  }
+
+  return []
+}
+
+function normalizeScore(value) {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+
+  const numericValue = Number(value)
+
+  return Number.isNaN(numericValue) ? null : numericValue
+}
+
+function hasAnalysisResultShape(source) {
+  if (!source || typeof source !== 'object') {
+    return false
+  }
+
+  return (
+    'overall_bias_score' in source ||
+    'overallBiasScore' in source ||
+    'summary_text' in source ||
+    'summaryText' in source ||
+    'perspective_summary' in source ||
+    'perspectiveSummary' in source ||
+    'evidence_summary' in source ||
+    'evidenceSummary' in source ||
+    'tone_label' in source ||
+    'toneLabel' in source
+  )
+}
+
+function normalizeAnalysisResult(source) {
+  const responseBody = extractResponseBody(source) || {}
+
+  return {
+    targetId: extractTargetId(responseBody) ?? extractTargetId(source),
+    overallBiasScore: normalizeScore(pickFirstDefined(responseBody, ['overall_bias_score', 'overallBiasScore'], null)),
+    opinionScore: normalizeScore(pickFirstDefined(responseBody, ['opinion_score', 'opinionScore'], null)),
+    emotionScore: normalizeScore(pickFirstDefined(responseBody, ['emotion_score', 'emotionScore'], null)),
+    anonymousSourceScore: normalizeScore(
+      pickFirstDefined(responseBody, ['anonymous_source_score', 'anonymousSourceScore'], null),
+    ),
+    headlineBodyGapScore: normalizeScore(
+      pickFirstDefined(responseBody, ['headline_body_gap_score', 'headlineBodyGapScore'], null),
+    ),
+    neutralityScore: normalizeScore(pickFirstDefined(responseBody, ['neutrality_score', 'neutralityScore'], null)),
+    summaryText: pickFirstDefined(responseBody, ['summary_text', 'summaryText'], ''),
+    perspectiveSummary: pickFirstDefined(
+      responseBody,
+      ['perspective_summary', 'perspectiveSummary', 'viewpoint_summary', 'viewpointSummary'],
+      '',
+    ),
+    evidenceSummary: pickFirstDefined(
+      responseBody,
+      ['evidence_summary', 'evidenceSummary', 'basis_summary', 'basisSummary'],
+      '',
+    ),
+    toneLabel: pickFirstDefined(responseBody, ['tone_label', 'toneLabel'], ''),
+    keywords: pickArray(responseBody, ['keywords'])
+      .map((keyword) => normalizeKeyword(keyword))
+      .filter(Boolean),
+    sentenceLabels: pickArray(responseBody, ['sentence_labels', 'sentenceLabels'])
+      .map((label, index) => normalizeSentenceLabel(label, index))
+      .filter(Boolean),
+    highlightSpans: pickArray(responseBody, ['highlight_spans', 'highlightSpans'])
+      .map((span, index) => normalizeHighlightSpan(span, index))
+      .filter(Boolean),
+    evidences: pickArray(responseBody, ['evidences']),
+  }
+}
+
+export async function startVideoAnalysis(youtubeId, accessToken = getAccessToken()) {
+  const normalizedYoutubeId =
+    typeof youtubeId === 'string' ? youtubeId.trim() : String(youtubeId || '').trim()
+
+  if (!normalizedYoutubeId) {
     throw new Error('분석할 유튜브 영상 ID가 없습니다.')
   }
 
   const payload = await requestJson(
-    `/api/v1/analysis/analyze/${encodeURIComponent(normalizedYoutubeVideoId)}`,
+    `/api/v1/analysis/analyze/${encodeURIComponent(normalizedYoutubeId)}`,
     {
       method: 'POST',
       accessToken,
@@ -153,11 +316,18 @@ export async function startVideoAnalysis(youtubeVideoId, accessToken = getAccess
   )
 
   const responseBody = extractResponseBody(payload)
+  const targetId = extractTargetId(responseBody) ?? extractTargetId(payload)
+  const analysisResult = hasAnalysisResultShape(responseBody)
+    ? normalizeAnalysisResult(responseBody)
+    : hasAnalysisResultShape(payload)
+      ? normalizeAnalysisResult(payload)
+      : null
 
   return {
     jobId: responseBody?.job_id || responseBody?.jobId || null,
     status: responseBody?.status || '',
-    targetId: responseBody?.target_id || responseBody?.targetId || null,
+    targetId,
+    analysisResult,
   }
 }
 
@@ -173,28 +343,5 @@ export async function fetchVideoAnalysisResult(targetId, accessToken = getAccess
     accessToken,
   })
 
-  const responseBody = extractResponseBody(payload) || {}
-
-  return {
-    targetId: responseBody.target_id || responseBody.targetId || null,
-    overallBiasScore: Number(responseBody.overall_bias_score),
-    opinionScore: Number(responseBody.opinion_score),
-    emotionScore: Number(responseBody.emotion_score),
-    anonymousSourceScore: Number(responseBody.anonymous_source_score),
-    headlineBodyGapScore: Number(responseBody.headline_body_gap_score),
-    neutralityScore:
-      responseBody.neutrality_score === null || responseBody.neutrality_score === undefined
-        ? null
-        : Number(responseBody.neutrality_score),
-    summaryText: responseBody.summary_text || '',
-    perspectiveSummary: responseBody.perspective_summary || '',
-    evidenceSummary: responseBody.evidence_summary || '',
-    toneLabel: responseBody.tone_label || '',
-    keywords: (Array.isArray(responseBody.keywords) ? responseBody.keywords : [])
-      .map((keyword) => normalizeKeyword(keyword))
-      .filter(Boolean),
-    sentenceLabels: (Array.isArray(responseBody.sentence_labels) ? responseBody.sentence_labels : [])
-      .map((label, index) => normalizeSentenceLabel(label, index))
-      .filter(Boolean),
-  }
+  return normalizeAnalysisResult(payload)
 }

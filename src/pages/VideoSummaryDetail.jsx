@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Navbar from '../components/Navbar'
+import YoutubeThumbnail from '../components/YoutubeThumbnail'
 import { fetchVideoAnalysisResult, startVideoAnalysis } from '../services/analysis'
 import {
   createScrapLookup,
@@ -92,6 +93,16 @@ function pickFirst(source, keys, fallback = '') {
   }
 
   return fallback
+}
+
+function truncateText(value, maxLength = 180) {
+  const normalizedText = String(value || '').replace(/\s+/g, ' ').trim()
+
+  if (normalizedText.length <= maxLength) {
+    return normalizedText
+  }
+
+  return `${normalizedText.slice(0, maxLength).trim()}...`
 }
 
 function pickNumericLikeFirst(source, keys, fallback = null) {
@@ -477,7 +488,8 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
   const [isMainScrapLoading, setIsMainScrapLoading] = useState(false)
   const [pendingRecommendationIds, setPendingRecommendationIds] = useState([])
 
-  const summaryText = analysisResult?.summaryText || videoDetail?.description || ''
+  const analysisSummaryOnlyText = analysisResult?.summaryText || ''
+  const summaryText = analysisSummaryOnlyText || videoDetail?.description || ''
   const isSummaryToggleVisible = summaryText.length > 180
   const isSummaryCollapsed = isSummaryToggleVisible && !isSummaryExpanded
 
@@ -519,17 +531,17 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
       description: '상반된 시각을 균형 있게 담고 있는지 살펴보는 지표입니다.',
     },
   ]
-
   const keywordItems = dedupeKeywords(analysisResult?.keywords || [])
   const sentenceLabelItems = dedupeSentenceLabels(analysisResult?.sentenceLabels || [])
   const isAnalysisView = Boolean(analysisResult)
   const analysisToneLabel = analysisResult?.toneLabel || '분석 완료'
   const analysisSummaryText =
-    summaryText || '영상 분석이 완료되면 여기에서 요약된 내용을 확인할 수 있습니다.'
-  const analysisDescriptionText =
-    analysisResult?.evidenceSummary ||
-    videoDetail?.description ||
-    '영상 설명이 아직 준비되지 않았습니다.'
+    analysisSummaryOnlyText || '영상 요약이 아직 준비되지 않았습니다.'
+  const analysisDescriptionText = truncateText(
+    analysisResult?.perspectiveSummary ||
+      analysisResult?.evidenceSummary ||
+      '분석 결과가 준비되었습니다. 아래 카드에서 관점과 근거를 확인해 주세요.',
+  )
   const analysisOverviewBars = [
     {
       key: 'opinion',
@@ -580,11 +592,12 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
         onClick={() => handleOpenRecommendation(recommendation.youtubeVideoId)}
       >
         <div className="video-summary-detail-page__recommendation-thumb">
-          {recommendation.thumbnailUrl ? (
-            <img src={recommendation.thumbnailUrl} alt={recommendation.title} />
-          ) : (
-            <div className="video-summary-detail-page__recommendation-placeholder" />
-          )}
+          <YoutubeThumbnail
+            src={recommendation.thumbnailUrl}
+            youtubeVideoId={recommendation.youtubeVideoId}
+            alt={recommendation.title}
+            placeholder={<div className="video-summary-detail-page__recommendation-placeholder" />}
+          />
         </div>
 
         <div className="video-summary-detail-page__recommendation-body">
@@ -1001,13 +1014,16 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
                           rel="noreferrer"
                           aria-label={`${videoDetail.title} 원본 영상 열기`}
                         >
-                          {videoDetail.thumbnailUrl ? (
-                            <img src={videoDetail.thumbnailUrl} alt={videoDetail.title} />
-                          ) : (
-                            <div className="video-summary-detail-page__hero-placeholder">
-                              <span>NNW VIDEO</span>
-                            </div>
-                          )}
+                          <YoutubeThumbnail
+                            src={videoDetail.thumbnailUrl}
+                            youtubeVideoId={videoDetail.youtubeVideoId}
+                            alt={videoDetail.title}
+                            placeholder={
+                              <div className="video-summary-detail-page__hero-placeholder">
+                                <span>NNW VIDEO</span>
+                              </div>
+                            }
+                          />
 
                           <span className="video-summary-detail-page__hero-play">
                             <PlayIcon />
@@ -1097,14 +1113,12 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
 
                   <div className="video-summary-detail-page__analysis-detail-layout">
                     <div className="video-summary-detail-page__analysis-detail-stack">
-                      {analysisResult?.perspectiveSummary ? (
-                        <article className="video-summary-detail-page__analysis-detail-card">
-                          <div className="video-summary-detail-page__analysis-detail-head">
-                            <h3>관점 요약</h3>
-                          </div>
-                          <p>{analysisResult.perspectiveSummary}</p>
-                        </article>
-                      ) : null}
+                      <article className="video-summary-detail-page__analysis-detail-card">
+                        <div className="video-summary-detail-page__analysis-detail-head">
+                          <h3>관점 요약</h3>
+                        </div>
+                        <p>{analysisResult?.perspectiveSummary || '분석 전이라 관점 요약이 아직 없습니다.'}</p>
+                      </article>
 
                       {analysisResult?.evidenceSummary ? (
                         <article className="video-summary-detail-page__analysis-detail-card">
@@ -1213,13 +1227,16 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
                       rel="noreferrer"
                       aria-label={`${videoDetail.title} 원본 영상 열기`}
                     >
-                      {videoDetail.thumbnailUrl ? (
-                        <img src={videoDetail.thumbnailUrl} alt={videoDetail.title} />
-                      ) : (
-                        <div className="video-summary-detail-page__hero-placeholder">
-                          <span>NNW VIDEO</span>
-                        </div>
-                      )}
+                      <YoutubeThumbnail
+                        src={videoDetail.thumbnailUrl}
+                        youtubeVideoId={videoDetail.youtubeVideoId}
+                        alt={videoDetail.title}
+                        placeholder={
+                          <div className="video-summary-detail-page__hero-placeholder">
+                            <span>NNW VIDEO</span>
+                          </div>
+                        }
+                      />
 
                       <span className="video-summary-detail-page__hero-play">
                         <PlayIcon />
@@ -1499,14 +1516,14 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId }) {
                             onClick={() => handleOpenRecommendation(recommendation.youtubeVideoId)}
                           >
                             <div className="video-summary-detail-page__recommendation-thumb">
-                              {recommendation.thumbnailUrl ? (
-                                <img
-                                  src={recommendation.thumbnailUrl}
-                                  alt={recommendation.title}
-                                />
-                              ) : (
-                                <div className="video-summary-detail-page__recommendation-placeholder" />
-                              )}
+                              <YoutubeThumbnail
+                                src={recommendation.thumbnailUrl}
+                                youtubeVideoId={recommendation.youtubeVideoId}
+                                alt={recommendation.title}
+                                placeholder={
+                                  <div className="video-summary-detail-page__recommendation-placeholder" />
+                                }
+                              />
                             </div>
 
                             <div className="video-summary-detail-page__recommendation-body">
