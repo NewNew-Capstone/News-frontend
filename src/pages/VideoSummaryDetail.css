@@ -1317,6 +1317,14 @@
   animation: vsdModalIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.video-summary-detail-page__analysis-dialog--notice {
+  width: min(100%, 430px);
+  border: 1px solid rgba(204, 224, 255, 0.86);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(235, 243, 255, 0.95), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.98));
+}
+
 .video-summary-detail-page__analysis-close {
   position: absolute;
   top: 16px;
@@ -1356,6 +1364,11 @@
   letter-spacing: -0.03em;
 }
 
+.video-summary-detail-page__analysis-badge--notice {
+  color: #2f6fbd;
+  font-size: 1.22rem;
+}
+
 .video-summary-detail-page__analysis-badge svg {
   width: 22px;
   height: 22px;
@@ -1368,6 +1381,14 @@
   font-weight: 800;
   line-height: 1.45;
   letter-spacing: -0.03em;
+}
+
+.video-summary-detail-page__analysis-message--notice {
+  color: var(--text, #4e5968);
+  font-size: 1.04rem;
+  font-weight: 700;
+  line-height: 1.7;
+  letter-spacing: 0;
 }
 
 .video-summary-detail-page__analysis-actions {

@@ -95,19 +95,20 @@ export function buildYoutubeThumbnailUrl(videoId, fileName = 'mqdefault.jpg') {
     : ''
 }
 
-export function getYoutubeThumbnailSources(src = '', youtubeVideoId = '') {
+export function getYoutubeThumbnailSources(src = '', youtubeVideoId = '', options = {}) {
   const initialSrc = typeof src === 'string' ? src.trim() : ''
-  const normalizedVideoId = normalizeYoutubeVideoId(youtubeVideoId) || normalizeYoutubeVideoId(initialSrc)
-  const isYoutubeThumbnail = isYoutubeThumbnailUrl(initialSrc)
   const candidates = []
 
-  if (initialSrc && !isYoutubeThumbnail) {
+  if (initialSrc) {
     candidates.push(initialSrc)
   }
 
-  if (normalizedVideoId) {
-    candidates.push(buildYoutubeThumbnailUrl(normalizedVideoId, 'mqdefault.jpg'))
-    candidates.push(buildYoutubeThumbnailUrl(normalizedVideoId, 'hqdefault.jpg'))
+  if (!initialSrc && options.allowGenerated === true) {
+    const normalizedVideoId = normalizeYoutubeVideoId(youtubeVideoId)
+
+    if (normalizedVideoId) {
+      candidates.push(buildYoutubeThumbnailUrl(normalizedVideoId, 'hqdefault.jpg'))
+    }
   }
 
   return candidates.filter((candidate, index, array) => candidate && array.indexOf(candidate) === index)

@@ -148,15 +148,6 @@
   animation: vsSearchIn 520ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
 }
 
-.video-summary-page__searchbar::before {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  border-radius: inherit;
-  background: linear-gradient(90deg, rgba(49, 130, 246, 0.08), rgba(255, 255, 255, 0));
-  pointer-events: none;
-}
-
 .video-summary-page__searchbar > * {
   position: relative;
   z-index: 1;
@@ -238,12 +229,28 @@
   width: 100%;
   border: none;
   background: transparent;
+  background-color: transparent;
   color: var(--text-strong, #191f28);
   font-size: 1.02rem;
   font-weight: 700;
   text-align: left;
   padding: 0.95rem 0.1rem;
   outline: none;
+  box-shadow: none;
+  appearance: none;
+}
+
+.video-summary-page__searchbar input:focus {
+  background: transparent;
+  background-color: transparent;
+}
+
+.video-summary-page__searchbar input:-webkit-autofill,
+.video-summary-page__searchbar input:-webkit-autofill:hover,
+.video-summary-page__searchbar input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-strong, #191f28);
+  box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0) inset;
+  transition: background-color 9999s ease-in-out 0s;
 }
 
 .video-summary-page__searchbar input::placeholder {

@@ -21,6 +21,14 @@ function ArrowIcon({ direction = 'right' }) {
   )
 }
 
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 7.5v9l7-4.5-7-4.5Z" fill="currentColor" />
+    </svg>
+  )
+}
+
 function normalizeIndex(index, length) {
   if (!length) {
     return 0
@@ -52,7 +60,7 @@ function getCardOpacity(distance) {
   }
 
   if (distance === 1) {
-    return 0.72
+    return 0.58
   }
 
   return 0
@@ -73,10 +81,10 @@ function getCardTransform(offset) {
 
   return {
     translateX: `calc(var(--carousel-side-offset) * ${offset})`,
-    translateY: '30px',
+    translateY: '18px',
     translateZ: 'var(--carousel-side-depth)',
-    rotateY: `${offset * 78}deg`,
-    scale: 0.74,
+    rotateY: '0deg',
+    scale: 0.84,
   }
 }
 
@@ -91,10 +99,6 @@ function RotatingArticleCarousel({
   const [activeIndex, setActiveIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
-
-  useEffect(() => {
-    setActiveIndex(0)
-  }, [articles])
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -131,6 +135,8 @@ function RotatingArticleCarousel({
   if (!articles.length) {
     return null
   }
+
+  const activeArticleIndex = normalizeIndex(activeIndex, articles.length)
 
   const handleMove = (direction) => {
     setActiveIndex((currentIndex) =>
@@ -179,9 +185,9 @@ function RotatingArticleCarousel({
       <div className="rotating-article-carousel__viewport">
         <div className="rotating-article-carousel__stage">
           {articles.map((article, index) => {
-            const offset = getCircularOffset(index, activeIndex, articles.length)
+            const offset = getCircularOffset(index, activeArticleIndex, articles.length)
             const distance = Math.abs(offset)
-            const isActive = index === activeIndex
+            const isActive = index === activeArticleIndex
             const isVisible = distance <= 1
             const transform = getCardTransform(offset)
 
@@ -237,6 +243,9 @@ function RotatingArticleCarousel({
                         alt={article.title}
                         placeholder={<div className="rotating-article-carousel__placeholder" />}
                       />
+                      <span className="rotating-article-carousel__play-mark" aria-hidden="true">
+                        <PlayIcon />
+                      </span>
                     </div>
 
                     <div className="rotating-article-carousel__body">
@@ -255,6 +264,31 @@ function RotatingArticleCarousel({
           })}
         </div>
       </div>
+
+      {articles.length > 1 ? (
+        <div className="rotating-article-carousel__controls">
+          <span className="rotating-article-carousel__counter" aria-label="현재 영상 순서">
+            <strong>{String(activeArticleIndex + 1).padStart(2, '0')}</strong>
+            <span>/</span>
+            <span>{String(articles.length).padStart(2, '0')}</span>
+          </span>
+
+          <div className="rotating-article-carousel__dots" aria-label={`${sectionName} 영상 선택`}>
+            {articles.map((article, index) => (
+              <button
+                key={`dot-${article.id}`}
+                type="button"
+                className={`rotating-article-carousel__dot ${
+                  index === activeArticleIndex ? 'rotating-article-carousel__dot--active' : ''
+                }`}
+                aria-label={`${index + 1}번째 영상 보기`}
+                aria-pressed={index === activeArticleIndex}
+                onClick={() => setActiveIndex(index)}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {articles.length > 1 ? (
         <button

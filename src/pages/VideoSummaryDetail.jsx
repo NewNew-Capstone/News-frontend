@@ -255,6 +255,28 @@ function isAnalysisMissingError(error) {
   return error?.status === 404 || error?.statusCode === 'A003'
 }
 
+function isTranscriptUnavailableError(error) {
+  const message = String(error?.message || '').toLowerCase()
+  const statusCode = String(error?.statusCode || '').toLowerCase()
+
+  return (
+    statusCode.includes('transcript') ||
+    statusCode.includes('caption') ||
+    statusCode.includes('subtitle') ||
+    message.includes('transcript') ||
+    message.includes('caption') ||
+    message.includes('subtitle') ||
+    message.includes('subtitles') ||
+    message.includes('no captions') ||
+    message.includes('no subtitles') ||
+    message.includes('자막')
+  )
+}
+
+function getTranscriptUnavailableMessage() {
+  return '이 영상은 제공되는 자막이 없어 분석을 진행할 수 없습니다. 자막이 있는 다른 영상을 선택해 주세요.'
+}
+
 function formatKeywordType(keywordType) {
   const normalizedType = String(keywordType || '').toUpperCase()
 
@@ -505,6 +527,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const [recommendationsErrorMessage, setRecommendationsErrorMessage] = useState('')
   const [actionErrorMessage, setActionErrorMessage] = useState('')
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false)
+  const [transcriptErrorMessage, setTranscriptErrorMessage] = useState('')
   const [isAnalysisLoading, setIsAnalysisLoading] = useState(false)
   const [isAnalysisProgressView, setIsAnalysisProgressView] = useState(false)
   const [analysisResult, setAnalysisResult] = useState(null)
@@ -752,6 +775,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       setIsMainScrapped(false)
       setIsMainScrapLoading(false)
       setPendingRecommendationIds([])
+      setTranscriptErrorMessage('')
 
       if (!videoId) {
         setIsPageLoading(false)
@@ -1002,6 +1026,17 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     setIsAnalysisModalOpen(true)
   }
 
+  const redirectToPreviousPage = () => {
+    setTranscriptErrorMessage('')
+
+    if (window.history.length > 1) {
+      window.history.back()
+      return
+    }
+
+    window.location.hash = '#summary'
+  }
+
   const handleConfirmAnalysis = async () => {
     const analysisYoutubeId = videoDetail?.youtubeId || videoDetail?.youtubeVideoId
 
@@ -1043,6 +1078,12 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
       setAnalysisResult(nextAnalysisResult)
     } catch (error) {
+      if (isTranscriptUnavailableError(error)) {
+        setAnalysisErrorMessage('')
+        setTranscriptErrorMessage(getTranscriptUnavailableMessage())
+        return
+      }
+
       setAnalysisErrorMessage(
         error instanceof Error ? error.message : '영상 분석을 시작하지 못했습니다.',
       )
@@ -1654,6 +1695,53 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
               </div>
             </div>
           </div>
+          ),
+          document.body,
+        ) : null}
+
+        {transcriptErrorMessage ? createPortal(
+          (
+            <div
+              className="video-summary-detail-page__analysis-modal"
+              role="presentation"
+              onClick={redirectToPreviousPage}
+            >
+              <div
+                className="video-summary-detail-page__analysis-dialog video-summary-detail-page__analysis-dialog--notice"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="video-transcript-error-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="video-summary-detail-page__analysis-close"
+                  onClick={redirectToPreviousPage}
+                  aria-label="자막 오류 안내 닫기"
+                >
+                  <CloseIcon />
+                </button>
+
+                <div className="video-summary-detail-page__analysis-badge video-summary-detail-page__analysis-badge--notice">
+                  <AnalysisIcon />
+                  <span id="video-transcript-error-title">자막이 없는 영상입니다</span>
+                </div>
+
+                <p className="video-summary-detail-page__analysis-message video-summary-detail-page__analysis-message--notice">
+                  {transcriptErrorMessage}
+                </p>
+
+                <div className="video-summary-detail-page__analysis-actions">
+                  <button
+                    type="button"
+                    className="video-summary-detail-page__analysis-action video-summary-detail-page__analysis-action--primary"
+                    onClick={redirectToPreviousPage}
+                  >
+                    이전 화면으로 돌아가기
+                  </button>
+                </div>
+              </div>
+            </div>
           ),
           document.body,
         ) : null}

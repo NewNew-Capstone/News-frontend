@@ -19,6 +19,8 @@ const AUTH_STORAGE_KEY = 'newnew-auth-session'
 const AUTH_REDIRECT_KEY = 'newnew-auth-redirect'
 const SOCIAL_CODE_EXCHANGE_CACHE_TTL = 10_000
 
+let inMemoryAuthSession = null
+
 const socialCodeExchangePromises = new Map()
 
 const SOCIAL_PROVIDER_CONFIG = {
@@ -93,18 +95,72 @@ function extractErrorMessage(payload) {
   )
 }
 
-function createAuthHeaders(accessToken) {
+function createAuthHeaders(accessToken, { useRawAuthorization = false } = {}) {
   const normalizedToken = normalizeTokenValue(accessToken)
   const headers = {
     Accept: 'application/json',
   }
 
   if (normalizedToken) {
-    headers.Authorization = `Bearer ${normalizedToken}`
+    headers.Authorization = useRawAuthorization ? normalizedToken : `Bearer ${normalizedToken}`
     headers.AccessToken = normalizedToken
   }
 
   return headers
+}
+
+function logMyProfileResponse(payload, normalizedProfile) {
+  if (!import.meta.env.DEV) {
+    return
+  }
+
+  const responseBody = extractResponseBody(payload)
+
+  console.groupCollapsed('[MyPage] GET /api/v1/users/me response')
+  console.log('raw response:', payload)
+  console.log('response body:', responseBody)
+  console.table({
+    userId: normalizedProfile.userId,
+    email: normalizedProfile.email,
+    name: normalizedProfile.name,
+    nickname: normalizedProfile.nickname,
+    birth: normalizedProfile.birth,
+    phone: normalizedProfile.phone,
+    profileImageKey: normalizedProfile.profileImageKey,
+  })
+  console.groupEnd()
+}
+
+function logMyProfileError(response, payload) {
+  if (!import.meta.env.DEV) {
+    return
+  }
+
+  console.groupCollapsed('[MyPage] GET /api/v1/users/me failed')
+  console.warn('status:', response.status)
+  console.log('raw error response:', payload)
+  console.groupEnd()
+}
+
+async function fetchWithAuthRetry(path, { method = 'GET', accessToken, body } = {}) {
+  const hasBody = body !== undefined
+  const createRequestInit = (useRawAuthorization = false) => ({
+    method,
+    headers: {
+      ...createAuthHeaders(accessToken, { useRawAuthorization }),
+      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+    },
+    credentials: 'include',
+    ...(hasBody ? { body: JSON.stringify(body) } : {}),
+  })
+
+  const response = await fetch(buildUrl(path), createRequestInit(false))
+
+  if (response.status !== 401) {
+    return response
+  }
+
+  return fetch(buildUrl(path), createRequestInit(true))
 }
 
 async function postJson(path, body, fallbackErrorMessage) {
@@ -144,14 +200,18 @@ async function postJson(path, body, fallbackErrorMessage) {
 
 async function getJson(path, accessToken, fallbackErrorMessage) {
   try {
-    const response = await fetch(buildUrl(path), {
+    const response = await fetchWithAuthRetry(path, {
       method: 'GET',
-      headers: createAuthHeaders(accessToken),
+      accessToken,
     })
 
     const payload = await parseResponse(response)
 
     if (!response.ok) {
+      if (path === '/api/v1/users/me') {
+        logMyProfileError(response, payload)
+      }
+
       const error = new Error(extractErrorMessage(payload) || fallbackErrorMessage)
       error.status = response.status
       throw error
@@ -169,14 +229,10 @@ async function getJson(path, accessToken, fallbackErrorMessage) {
 
 async function patchJson(path, body, accessToken, fallbackErrorMessage) {
   try {
-    const response = await fetch(buildUrl(path), {
+    const response = await fetchWithAuthRetry(path, {
       method: 'PATCH',
-      headers: {
-        ...createAuthHeaders(accessToken),
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify(body),
+      accessToken,
+      body,
     })
 
     const payload = await parseResponse(response)
@@ -199,10 +255,9 @@ async function patchJson(path, body, accessToken, fallbackErrorMessage) {
 
 async function deleteJson(path, accessToken, fallbackErrorMessage) {
   try {
-    const response = await fetch(buildUrl(path), {
+    const response = await fetchWithAuthRetry(path, {
       method: 'DELETE',
-      headers: createAuthHeaders(accessToken),
-      credentials: 'include',
+      accessToken,
     })
 
     const payload = await parseResponse(response)
@@ -499,7 +554,11 @@ export async function fetchMyProfile(accessToken = getAccessToken()) {
     '프로필 정보를 불러오지 못했습니다.',
   )
 
-  return normalizeUserProfile(payload)
+  const normalizedProfile = normalizeUserProfile(payload)
+
+  logMyProfileResponse(payload, normalizedProfile)
+
+  return normalizedProfile
 }
 
 export async function updateMyProfile(profileInput, accessToken = getAccessToken()) {
@@ -531,25 +590,30 @@ export async function deleteMyAccount(accessToken = getAccessToken()) {
 
 export function getStoredAuthSession() {
   try {
-    const storedValue = localStorage.getItem(AUTH_STORAGE_KEY)
-    return storedValue ? JSON.parse(storedValue) : null
+    localStorage.removeItem(AUTH_STORAGE_KEY)
   } catch {
-    return null
+    // localStorage may be unavailable.
   }
+
+  return inMemoryAuthSession
 }
 
 export function persistAuthSession(session) {
+  inMemoryAuthSession = session || null
+
   try {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session))
+    localStorage.removeItem(AUTH_STORAGE_KEY)
   } catch {
-    // localStorage is optional for now.
+    // localStorage may be unavailable.
   }
 }
 
 export function clearAuthSession() {
+  inMemoryAuthSession = null
+
   try {
     localStorage.removeItem(AUTH_STORAGE_KEY)
   } catch {
-    // localStorage is optional for now.
+    // localStorage may be unavailable.
   }
 }

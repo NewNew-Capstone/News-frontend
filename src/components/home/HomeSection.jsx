@@ -1,4 +1,4 @@
-import Mascot from '../Mascot'
+import HeroChromeScene from './HeroChromeScene'
 import './HomeSection.css'
 
 const CUBE_FACE_NAMES = ['front', 'back', 'right', 'left', 'top', 'bottom']
@@ -38,37 +38,35 @@ function HomeSection({ section, isActive, isSimple, nextHref, sectionRef }) {
       <div className="home-section__shell">
         {isSimple ? (
           <div className="home-section__hero-layout">
-            <div className="home-section__hero-copy">
-              <h1 className="home-section__title">
-                {section.titleLines.map((line, lineIndex) => (
-                  <span
-                    key={line}
-                    className={
-                      lineIndex === section.accentLine
-                        ? 'home-section__title-line home-section__title-line--accent'
-                        : 'home-section__title-line'
-                    }
-                  >
-                    {line}
-                  </span>
-                ))}
-              </h1>
+            <div className="home-section__hero-scene" aria-hidden="true">
+              <HeroChromeScene />
             </div>
 
-            <div className="home-section__hero-mascot">
-              <div className="home-section__stat-bubble home-section__stat-bubble--tl">
-                <span className="home-section__stat-bubble-value">1.2만+</span>
-                <span className="home-section__stat-bubble-label">영상 요약</span>
-              </div>
-              <Mascot />
-              <div className="home-section__stat-bubble home-section__stat-bubble--br">
-                <span className="home-section__stat-bubble-value">15개국</span>
-                <span className="home-section__stat-bubble-label">뉴스 비교</span>
+            <div className="home-section__hero-content">
+              <div className="home-section__hero-copy">
+                <h1 className="home-section__title">
+                  {section.titleLines.map((line, lineIndex) => (
+                    <span
+                      key={line}
+                      className={
+                        lineIndex === section.accentLine
+                          ? 'home-section__title-line home-section__title-line--accent'
+                          : 'home-section__title-line'
+                      }
+                    >
+                      {line}
+                    </span>
+                  ))}
+                </h1>
               </div>
             </div>
           </div>
         ) : (
           <div className="home-section__content">
+            <div className="home-section__motion-scene" aria-hidden="true">
+              <div className="home-section__motion-grid" />
+            </div>
+
             <div className="home-section__copy">
               {section.eyebrow ? (
                 <p className="home-section__eyebrow">{section.eyebrow}</p>
@@ -123,20 +121,6 @@ function HomeSection({ section, isActive, isSimple, nextHref, sectionRef }) {
                     <div className="home-section__preview-cube-shadow" />
                   </div>
                   <div className="home-section__preview-glass" aria-hidden="true" />
-                  <div className="home-section__preview-badge">{section.card.badge}</div>
-                </div>
-                <div className="home-section__preview-body">
-                  <p className="home-section__preview-label">{section.card.label}</p>
-                  <h2>{section.card.heading}</h2>
-                  <p>{section.card.body}</p>
-                  <div className="home-section__preview-tags">
-                    {section.card.tags.map((tag) => (
-                      <span key={tag}>{tag}</span>
-                    ))}
-                  </div>
-                  <a className="home-section__preview-link" href={section.card.linkHref}>
-                    {section.card.linkLabel}
-                  </a>
                 </div>
               </article>
             ) : null}

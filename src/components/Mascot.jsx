@@ -124,8 +124,20 @@ function Mascot({ className = '' }) {
             <rect x="116" y="150" width="25" height="4" rx="2" fill="#D8EAFF" />
           </g>
 
-          <path d="M73 174v11" stroke="#91BDF8" strokeWidth="5" strokeLinecap="round" />
-          <path d="M107 174v11" stroke="#91BDF8" strokeWidth="5" strokeLinecap="round" />
+          <path
+            className="mascot__leg mascot__leg--left"
+            d="M73 174v11"
+            stroke="#91BDF8"
+            strokeWidth="5"
+            strokeLinecap="round"
+          />
+          <path
+            className="mascot__leg mascot__leg--right"
+            d="M107 174v11"
+            stroke="#91BDF8"
+            strokeWidth="5"
+            strokeLinecap="round"
+          />
         </g>
 
         <circle cx="142" cy="47" r="4" fill="#3182F6" opacity="0.22" className="mascot__sparkle mascot__sparkle--1" />

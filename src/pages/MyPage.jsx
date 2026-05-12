@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Navbar from '../components/Navbar'
 import YoutubeThumbnail from '../components/YoutubeThumbnail'
 import { deleteMyAccount, fetchMyProfile, updateMyProfile } from '../services/auth'
@@ -22,6 +22,20 @@ function createProfileFormState(profile = {}) {
     birth: getDisplayText(profile.birth, ''),
     phone: getDisplayText(profile.phone, ''),
   }
+}
+
+function mergeProfileValues(baseProfile = {}, nextProfile = {}) {
+  const mergedProfile = { ...baseProfile, ...nextProfile }
+
+  for (const key of ['userId', 'email', 'name', 'nickname', 'birth', 'phone', 'profileImageKey']) {
+    const nextValue = nextProfile[key]
+
+    if (nextValue === undefined || nextValue === null || nextValue === '') {
+      mergedProfile[key] = baseProfile[key] ?? nextValue
+    }
+  }
+
+  return mergedProfile
 }
 
 function formatBirthDate(value) {
@@ -88,9 +102,25 @@ function MyPage({ isLoggedIn, onAuthClick, onLogout, onProfileUpdate, user }) {
   const [scrapErrorMessage, setScrapErrorMessage] = useState('')
   const [scrapRefreshKey, setScrapRefreshKey] = useState(0)
   const [pendingScrapIds, setPendingScrapIds] = useState([])
+  const latestUserRef = useRef(user)
+  const onProfileUpdateRef = useRef(onProfileUpdate)
 
   useEffect(() => {
-    setProfile((currentProfile) => currentProfile || user || null)
+    latestUserRef.current = user
+  }, [user])
+
+  useEffect(() => {
+    onProfileUpdateRef.current = onProfileUpdate
+  }, [onProfileUpdate])
+
+  useEffect(() => {
+    setProfile((currentProfile) => {
+      if (!user) {
+        return currentProfile || null
+      }
+
+      return currentProfile ? { ...user, ...currentProfile } : user
+    })
   }, [user])
 
   useEffect(() => {
@@ -120,7 +150,10 @@ function MyPage({ isLoggedIn, onAuthClick, onLogout, onProfileUpdate, user }) {
           return
         }
 
-        setProfile(nextProfile)
+        const mergedProfile = mergeProfileValues(latestUserRef.current || {}, nextProfile)
+
+        setProfile(mergedProfile)
+        onProfileUpdateRef.current?.(mergedProfile)
       } catch (error) {
         if (isCancelled) {
           return
