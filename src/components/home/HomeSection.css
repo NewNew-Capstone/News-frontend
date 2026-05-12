@@ -118,19 +118,12 @@
   grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
   gap: clamp(24px, 3vw, 44px);
   padding: clamp(30px, 3.5vw, 50px);
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 46px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.56), rgba(247, 251, 255, 0.22)),
-    linear-gradient(118deg, rgba(162, 205, 237, 0.16), transparent 36%, rgba(99, 156, 216, 0.1)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(231, 244, 255, 0.16));
-  box-shadow:
-    0 38px 100px rgba(75, 111, 170, 0.16),
-    0 14px 44px rgba(162, 205, 237, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.94),
-    inset 0 -1px 0 rgba(162, 205, 237, 0.16);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   isolation: isolate;
   perspective: 1200px;
   transition:
@@ -140,16 +133,12 @@
 }
 
 .home-section--active:not(.home-section--simple) .home-section__content {
-  border-color: rgba(196, 224, 244, 0.92);
-  box-shadow:
-    0 42px 110px rgba(75, 111, 170, 0.2),
-    0 18px 54px rgba(162, 205, 237, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    inset 0 -1px 0 rgba(162, 205, 237, 0.2);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .home-section:not(.home-section--simple) .home-section__content::before {
-  content: '';
+  content: none;
   position: absolute;
   inset: 1px;
   z-index: -1;
@@ -351,7 +340,7 @@
 }
 
 .home-section:not(.home-section--simple) .home-section__copy::before {
-  content: '';
+  content: none;
   position: absolute;
   z-index: -1;
   inset: -24px -30px -28px -28px;

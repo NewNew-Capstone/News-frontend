@@ -38,7 +38,7 @@ function ProfileIcon({ className = '' }) {
 
 const navItems = [
   { key: 'summary', label: '영상 요약', href: '#summary', Icon: SummaryIcon },
-  { key: 'compare', label: '국가별 비교', href: '#compare', Icon: CompareIcon },
+  { key: 'compare', label: '국가별 비교', href: '#comparison', Icon: CompareIcon },
 ]
 
 function Navbar({ activeKey, isLoggedIn, onAuthClick, serviceHref = '#home', maxWidth }) {

@@ -206,6 +206,12 @@ function normalizeHighlightSpan(span, index) {
   }
 }
 
+function normalizeAnalysisScore(value) {
+  const numericValue = Number(value)
+
+  return Number.isFinite(numericValue) ? numericValue : null
+}
+
 function hasAnalysisResultShape(source) {
   if (!source || typeof source !== 'object') {
     return false
@@ -214,6 +220,12 @@ function hasAnalysisResultShape(source) {
   return (
     'overall_bias_score' in source ||
     'overallBiasScore' in source ||
+    'headline_body_gap_score' in source ||
+    'headlineBodyGapScore' in source ||
+    'score_reason_summary' in source ||
+    'scoreReasonSummary' in source ||
+    'fact_ratio' in source ||
+    'factRatio' in source ||
     'summary_text' in source ||
     'summaryText' in source ||
     'tone_label' in source ||
@@ -223,23 +235,48 @@ function hasAnalysisResultShape(source) {
 
 function normalizeAnalysisResult(source) {
   const responseBody = extractResponseBody(source) || {}
+  const neutralityScoreValue = responseBody.neutrality_score ?? responseBody.neutralityScore
 
-  return {
+  const normalizedResult = {
     targetId: extractTargetId(responseBody) ?? extractTargetId(source),
-    overallBiasScore: Number(responseBody.overall_bias_score),
-    opinionScore: Number(responseBody.opinion_score),
-    emotionScore: Number(responseBody.emotion_score),
-    anonymousSourceScore: Number(responseBody.anonymous_source_score),
-    headlineBodyGapScore: Number(responseBody.headline_body_gap_score),
+    overallBiasScore: normalizeAnalysisScore(responseBody.overall_bias_score ?? responseBody.overallBiasScore),
+    opinionScore: normalizeAnalysisScore(responseBody.opinion_score ?? responseBody.opinionScore),
+    emotionScore: normalizeAnalysisScore(responseBody.emotion_score ?? responseBody.emotionScore),
+    anonymousSourceScore: normalizeAnalysisScore(
+      responseBody.anonymous_source_score ?? responseBody.anonymousSourceScore,
+    ),
+    factRatio: normalizeAnalysisScore(responseBody.fact_ratio),
+    headlineBodyGapScore: normalizeAnalysisScore(
+      responseBody.headline_body_gap_score ?? responseBody.headlineBodyGapScore,
+    ),
+    headlineBodyGapLead: normalizeAnalysisScore(
+      responseBody.headline_body_gap_lead ?? responseBody.headlineBodyGapLead,
+    ),
+    headlineBodyGapTail: normalizeAnalysisScore(
+      responseBody.headline_body_gap_tail ?? responseBody.headlineBodyGapTail,
+    ),
+    headlineBodyGapLabel:
+      responseBody.headline_body_gap_label || responseBody.headlineBodyGapLabel || 'neutral',
     neutralityScore:
-      responseBody.neutrality_score === null || responseBody.neutrality_score === undefined
+      neutralityScoreValue === null || neutralityScoreValue === undefined
         ? null
-        : Number(responseBody.neutrality_score),
+        : normalizeAnalysisScore(neutralityScoreValue),
     summaryText: responseBody.summary_text || '',
     perspectiveSummary: responseBody.perspective_summary || '',
     evidenceSummary: responseBody.evidence_summary || '',
+    scoreReasonSummary:
+      responseBody.score_reason_summary ||
+      responseBody.scoreReasonSummary ||
+      '',
+    scoreEvidence: responseBody.score_evidence || '',
     toneLabel: responseBody.tone_label || '',
     keywords: (Array.isArray(responseBody.keywords) ? responseBody.keywords : [])
+      .map((keyword) => normalizeKeyword(keyword))
+      .filter(Boolean),
+    emotionKeywords: (Array.isArray(responseBody.emotion_keywords ?? responseBody.emotionKeywords)
+      ? responseBody.emotion_keywords ?? responseBody.emotionKeywords
+      : []
+    )
       .map((keyword) => normalizeKeyword(keyword))
       .filter(Boolean),
     sentenceLabels: (Array.isArray(responseBody.sentence_labels) ? responseBody.sentence_labels : [])
@@ -250,6 +287,19 @@ function normalizeAnalysisResult(source) {
       .filter(Boolean),
     evidences: Array.isArray(responseBody.evidences) ? responseBody.evidences : [],
   }
+
+  if (typeof console !== 'undefined') {
+    console.groupCollapsed('[Analysis] normalize result')
+    console.log('raw response body:', responseBody)
+    console.log('raw score_reason_summary:', responseBody.score_reason_summary)
+    console.log('raw scoreReasonSummary:', responseBody.scoreReasonSummary)
+    console.log('normalized scoreReasonSummary:', normalizedResult.scoreReasonSummary)
+    console.log('raw score_evidence:', responseBody.score_evidence)
+    console.log('normalized scoreEvidence:', normalizedResult.scoreEvidence)
+    console.groupEnd()
+  }
+
+  return normalizedResult
 }
 
 export async function startVideoAnalysis(youtubeId, accessToken = getAccessToken()) {

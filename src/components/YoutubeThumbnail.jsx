@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { getYoutubeThumbnailSources } from '../utils/youtubeVideo'
 
 const failedThumbnailSources = new Set()
@@ -9,12 +9,9 @@ function YoutubeThumbnail({ src = '', youtubeVideoId = '', alt = '', className =
     [src, youtubeVideoId],
   )
   const sourceKey = sources.join('|')
-  const [sourceIndex, setSourceIndex] = useState(0)
+  const [sourceState, setSourceState] = useState({ key: '', index: 0 })
+  const sourceIndex = sourceState.key === sourceKey ? sourceState.index : 0
   const currentSrc = sources[sourceIndex]
-
-  useEffect(() => {
-    setSourceIndex(0)
-  }, [sourceKey])
 
   if (!currentSrc) {
     return placeholder
@@ -28,7 +25,7 @@ function YoutubeThumbnail({ src = '', youtubeVideoId = '', alt = '', className =
       loading="lazy"
       onError={() => {
         failedThumbnailSources.add(currentSrc)
-        setSourceIndex((index) => index + 1)
+        setSourceState({ key: sourceKey, index: sourceIndex + 1 })
       }}
     />
   )

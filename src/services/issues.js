@@ -130,10 +130,7 @@ function normalizeIssueResults(results) {
   return Array.isArray(results) ? results.filter((item) => item && typeof item === 'object') : []
 }
 
-export async function fetchIssueSearchResults(
-  { searchKeyword, countries, period },
-  accessToken,
-) {
+export async function fetchIssueSearchResults({ searchKeyword }, accessToken) {
   const token = getAccessToken(accessToken)
 
   if (!token) {
@@ -147,8 +144,6 @@ export async function fetchIssueSearchResults(
       searchKeyword: '',
       clusterTitle: '',
       clusterSummary: '',
-      periodStartDate: '',
-      periodEndDate: '',
       results: [],
     }
   }
@@ -157,8 +152,6 @@ export async function fetchIssueSearchResults(
     accessToken: token,
     query: {
       searchKeyword: trimmedKeyword,
-      countries,
-      period,
     },
     fallbackErrorMessage: '국가별 이슈 영상을 불러오지 못했습니다.',
   })
@@ -169,8 +162,6 @@ export async function fetchIssueSearchResults(
     searchKeyword: body.searchKeyword || trimmedKeyword,
     clusterTitle: body.clusterTitle || '',
     clusterSummary: body.clusterSummary || '',
-    periodStartDate: body.periodStartDate || '',
-    periodEndDate: body.periodEndDate || '',
     results: normalizeIssueResults(body.results),
   }
 }

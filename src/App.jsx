@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Home from './pages/Home'
 import VideoSummary from './pages/VideoSummary'
 import VideoSummaryDetail from './pages/VideoSummaryDetail'
-import CountryCompare from './pages/CountryCompare'
+import CountryCompare, { ComparisonGraphPage } from './pages/CountryCompare'
 import Login from './pages/Login'
 import MyPage from './pages/MyPage'
 import OAuthCallback from './pages/OAuthCallback'
@@ -35,7 +35,8 @@ function getRouteStateFromLocation() {
     }
   }
 
-  const route = window.location.hash.replace('#', '')
+  const pathRoute = window.location.pathname.replace(/^\/+/, '')
+  const route = window.location.hash.replace('#', '') || pathRoute
 
   if (route.startsWith('summary/video/')) {
     return {
@@ -44,13 +45,18 @@ function getRouteStateFromLocation() {
     }
   }
 
-  if (
-    route === 'summary' ||
-    route === 'compare' ||
-    route === 'mypage' ||
-    route === 'login' ||
-    route === 'signup'
-  ) {
+  if (route.startsWith('comparison/graph/')) {
+    return {
+      name: 'comparison-graph',
+      videoId: decodeURIComponent(route.replace('comparison/graph/', '')),
+    }
+  }
+
+  if (route === 'comparison') {
+    return { name: 'compare' }
+  }
+
+  if (route === 'summary' || route === 'compare' || route === 'mypage' || route === 'login' || route === 'signup') {
     return { name: route }
   }
 
@@ -155,7 +161,7 @@ function App() {
     return () => {
       isCancelled = true
     }
-  }, [routeState])
+  }, [routeState, oauthState.status])
 
   const handleAuthClick = () => {}
 
@@ -270,7 +276,22 @@ function App() {
 
   if (routeState.name === 'compare') {
     return renderWithChatbot(
-      <CountryCompare isLoggedIn={isLoggedIn} onAuthClick={handleAuthClick} />,
+      <CountryCompare
+        isLoggedIn={isLoggedIn}
+        onAuthClick={handleAuthClick}
+        accessToken={accessToken}
+      />,
+    )
+  }
+
+  if (routeState.name === 'comparison-graph') {
+    return renderWithChatbot(
+      <ComparisonGraphPage
+        isLoggedIn={isLoggedIn}
+        onAuthClick={handleAuthClick}
+        accessToken={accessToken}
+        videoId={routeState.videoId}
+      />,
     )
   }
 

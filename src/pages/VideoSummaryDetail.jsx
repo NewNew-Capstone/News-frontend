@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import HeadlineBodyGapCard from '../components/analysis/HeadlineBodyGapCard'
 import Navbar from '../components/Navbar'
 import YoutubeThumbnail from '../components/YoutubeThumbnail'
 import { fetchVideoAnalysisResult, startVideoAnalysis } from '../services/analysis'
@@ -135,6 +136,16 @@ function formatScorePercent(value) {
   return `${percent.toFixed(1)}%`
 }
 
+function formatMetricPercent(value) {
+  const percent = clampPercentage(value)
+
+  if (percent === null) {
+    return '--%'
+  }
+
+  return `${Math.round(percent)}%`
+}
+
 function formatScorePoints(value) {
   const percent = clampPercentage(value)
 
@@ -143,6 +154,41 @@ function formatScorePoints(value) {
   }
 
   return `${Math.round(percent)}점`
+}
+
+function renderHighlightedEvidenceText(text) {
+  if (!text) {
+    return null
+  }
+
+  const evidenceText = String(text)
+  const highlightPattern = /(\d+(?:\.\d+)?\s*%|\d+(?:\.\d+)?\s*(?:점|건|개|문장|회)|\d*\.\d+|\d+)/g
+  const parts = []
+  let lastIndex = 0
+  let match
+
+  while ((match = highlightPattern.exec(evidenceText)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(evidenceText.slice(lastIndex, match.index))
+    }
+
+    parts.push(
+      <mark
+        key={`score-evidence-highlight-${match.index}-${match[0]}`}
+        className="video-summary-detail-page__analysis-score-evidence-highlight"
+      >
+        {match[0]}
+      </mark>,
+    )
+
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < evidenceText.length) {
+    parts.push(evidenceText.slice(lastIndex))
+  }
+
+  return parts
 }
 
 function formatCount(value, label) {
@@ -555,9 +601,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const scoreCards = [
     {
       key: 'overall-bias',
-      label: '주관성 점수',
+      label: '총 점수',
       value: analysisResult?.overallBiasScore ?? null,
-      description: '영상 전반의 편향 가능성을 종합한 지표입니다.',
+      description: '영상 전반의 편향 가능성을 종합한 총점입니다.',
     },
     {
       key: 'opinion',
@@ -580,11 +626,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   ]
 
   const subjectivityScoreCard = scoreCards.find((scoreCard) => scoreCard.key === 'overall-bias')
-  const analysisSideMetricCards = [
-    scoreCards.find((scoreCard) => scoreCard.key === 'headline-gap'),
-    emotionScoreCard,
-    scoreCards.find((scoreCard) => scoreCard.key === 'opinion'),
-  ].filter(Boolean)
 
   const keywordItems = dedupeKeywords(analysisResult?.keywords || [])
   const sentenceLabelItems = dedupeSentenceLabels(analysisResult?.sentenceLabels || [])
@@ -592,25 +633,53 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const analysisToneLabel = analysisResult?.toneLabel || '분석 완료'
   const analysisSummaryText =
     summaryText || '영상 분석이 완료되면 여기에서 요약된 내용을 확인할 수 있습니다.'
-  const analysisDescriptionText =
-    analysisResult?.evidenceSummary ||
-    videoDetail?.description ||
-    '영상 설명이 아직 준비되지 않았습니다.'
-  const analysisOverviewBars = [
+  const scoreReasonText =
+    analysisResult?.scoreReasonSummary ||
+    analysisResult?.scoreEvidence ||
+    '점수 근거는 백엔드 응답이 추가되면 이 영역에 표시됩니다.'
+  const scoreEvidenceText =
+    analysisResult?.scoreEvidence ||
+    '세부 근거 문장은 백엔드 응답이 추가되면 이 영역에 표시됩니다.'
+  const analysisMetricBars = [
     {
       key: 'opinion',
       label: '의견성',
       value: analysisResult?.opinionScore ?? null,
-      toneClassName: 'video-summary-detail-page__analysis-bar-fill--blue',
+      toneClassName: 'video-summary-detail-page__analysis-metric-fill--opinion',
     },
     {
       key: 'emotion',
       label: '감정성',
       value: analysisResult?.emotionScore ?? null,
-      toneClassName: 'video-summary-detail-page__analysis-bar-fill--amber',
+      toneClassName: 'video-summary-detail-page__analysis-metric-fill--emotion',
+    },
+    {
+      key: 'fact',
+      label: '사실비중',
+      value: analysisResult?.factRatio ?? null,
+      toneClassName: 'video-summary-detail-page__analysis-metric-fill--fact',
     },
   ]
   const analysisKeywordItems = keywordItems.slice(0, 8)
+  const fallbackEmotionKeywordItems = keywordItems
+    .filter((keyword) => {
+      const keywordType = String(keyword.keywordType || '').toLowerCase()
+
+      return (
+        keywordType.includes('emotion') ||
+        keywordType.includes('sentiment') ||
+        keywordType.includes('loaded')
+      )
+    })
+    .slice(0, 6)
+  const visibleEmotionKeywordItems = (
+    analysisResult?.emotionKeywords?.length
+      ? analysisResult.emotionKeywords
+      : fallbackEmotionKeywordItems.length
+        ? fallbackEmotionKeywordItems
+        : analysisKeywordItems
+  ).slice(0, 6)
+  const subjectivityScorePercent = clampPercentage(subjectivityScoreCard?.value)
 
   const renderScoreCard = (scoreCard) => {
     const percentage = clampPercentage(scoreCard.value)
@@ -629,55 +698,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
             className="video-summary-detail-page__analysis-score-fill"
             style={{ width: `${percentage ?? 0}%` }}
           />
-        </div>
-        <p>{scoreCard.description}</p>
-      </article>
-    )
-  }
-
-  const renderSubjectivityScore = (scoreCard) => {
-    const percentage = clampPercentage(scoreCard.value)
-    const scoreLabel = formatScorePoints(scoreCard.value)
-
-    return (
-      <article className="video-summary-detail-page__analysis-subjectivity-card">
-        <div className="video-summary-detail-page__analysis-subjectivity-head">
-          <div>
-            <span>대표 지표</span>
-            <h3>{scoreCard.label}</h3>
-          </div>
-          <strong>{scoreLabel}</strong>
-        </div>
-
-        <div className="video-summary-detail-page__analysis-subjectivity-meter">
-          <div className="video-summary-detail-page__analysis-subjectivity-track">
-            <span style={{ width: `${percentage ?? 0}%` }} />
-          </div>
-          <div className="video-summary-detail-page__analysis-subjectivity-scale">
-            <span>객관적</span>
-            <span>주관적</span>
-          </div>
-        </div>
-
-        <p>{scoreCard.description}</p>
-      </article>
-    )
-  }
-
-  const renderSideMetricCard = (scoreCard) => {
-    const percentage = clampPercentage(scoreCard.value)
-
-    return (
-      <article
-        key={scoreCard.key}
-        className={`video-summary-detail-page__analysis-side-metric-card video-summary-detail-page__analysis-side-metric-card--${scoreCard.key}`}
-      >
-        <div>
-          <h3>{scoreCard.label}</h3>
-          <span>{formatScorePoints(scoreCard.value)}</span>
-        </div>
-        <div className="video-summary-detail-page__analysis-side-metric-track">
-          <span style={{ width: `${percentage ?? 0}%` }} />
         </div>
         <p>{scoreCard.description}</p>
       </article>
@@ -900,6 +920,19 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       isCancelled = true
     }
   }, [analysisTargetId, hasCheckedExistingAnalysis, accessToken])
+
+  useEffect(() => {
+    if (!analysisResult || typeof console === 'undefined') {
+      return
+    }
+
+    console.groupCollapsed('[AnalysisDetail] rendered analysis result')
+    console.log('analysisResult:', analysisResult)
+    console.log('display scoreReasonSummary:', analysisResult.scoreReasonSummary)
+    console.log('display scoreEvidence:', analysisResult.scoreEvidence)
+    console.log('display overallBiasScore:', analysisResult.overallBiasScore)
+    console.groupEnd()
+  }, [analysisResult])
 
   useEffect(() => {
     if (!isAnalysisModalOpen) {
@@ -1173,9 +1206,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
               {isAnalysisView ? (
                 <div className="video-summary-detail-page__analysis-view">
-                  <div className="video-summary-detail-page__analysis-hero-grid">
-                    <section className="video-summary-detail-page__analysis-primary-column">
-                      <div className="video-summary-detail-page__hero video-summary-detail-page__hero--analysis">
+                  <div className="video-summary-detail-page__analysis-report">
+                    <div className="video-summary-detail-page__analysis-top-grid">
+                      <div className="video-summary-detail-page__hero video-summary-detail-page__hero--analysis video-summary-detail-page__analysis-report-hero">
                         <a
                           className="video-summary-detail-page__hero-link"
                           href={videoDetail.originalUrl}
@@ -1200,22 +1233,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                         </a>
                       </div>
 
-                      <article className="video-summary-detail-page__analysis-caption-card">
-                        <h3>관점 요약</h3>
-                        <p>{analysisResult?.perspectiveSummary || analysisDescriptionText}</p>
-                      </article>
-
-                      {subjectivityScoreCard ? renderSubjectivityScore(subjectivityScoreCard) : null}
-
-                      <article className="video-summary-detail-page__analysis-detail-card">
-                        <div className="video-summary-detail-page__analysis-detail-head">
-                          <h3>근거 요약</h3>
-                        </div>
-                        <p>{analysisResult?.evidenceSummary || analysisDescriptionText}</p>
-                      </article>
-                    </section>
-
-                    <aside className="video-summary-detail-page__analysis-sidepanel">
                       <article className="video-summary-detail-page__analysis-compact-card">
                         <div className="video-summary-detail-page__analysis-compact-header">
                           <h3>영상 요약</h3>
@@ -1227,48 +1244,64 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                           {analysisSummaryText}
                         </p>
                       </article>
+                    </div>
 
-                      <article className="video-summary-detail-page__analysis-compact-card">
-                        <div className="video-summary-detail-page__analysis-compact-header">
-                          <h3>편향 유형 분류</h3>
-                        </div>
+                    {subjectivityScoreCard ? (
+                      <article className="video-summary-detail-page__analysis-total-card">
+                        <section className="video-summary-detail-page__analysis-total-score">
+                          <h3>총 점수</h3>
+                          <div
+                            className="video-summary-detail-page__analysis-total-orb"
+                            style={{
+                              '--analysis-total-score-percent': `${subjectivityScorePercent ?? 0}%`,
+                            }}
+                          >
+                            <strong>{formatScorePoints(subjectivityScoreCard.value)}</strong>
+                            <span>종합 지표</span>
+                          </div>
+                        </section>
 
-                        <div className="video-summary-detail-page__analysis-bar-list">
-                          {analysisOverviewBars.map((bar) => {
-                            const percentage = clampPercentage(bar.value)
-
-                            return (
-                              <div
-                                key={bar.key}
-                                className="video-summary-detail-page__analysis-bar-item"
-                              >
-                                <div className="video-summary-detail-page__analysis-bar-meta">
-                                  <strong>{bar.label}</strong>
-                                  <span>{formatScorePercent(bar.value)}</span>
-                                </div>
-                                <div className="video-summary-detail-page__analysis-bar-track">
-                                  <span
-                                    className={`video-summary-detail-page__analysis-bar-fill ${bar.toneClassName}`}
-                                    style={{ width: `${percentage ?? 0}%` }}
-                                  />
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
+                        <section className="video-summary-detail-page__analysis-score-reason">
+                          <h3>점수 근거</h3>
+                          <p>{scoreReasonText}</p>
+                        </section>
                       </article>
+                    ) : null}
 
-                      <article className="video-summary-detail-page__analysis-compact-card">
+                    <article className="video-summary-detail-page__analysis-metric-card">
+                      <div className="video-summary-detail-page__analysis-metric-list">
+                        {analysisMetricBars.map((bar) => {
+                          const percentage = clampPercentage(bar.value)
+
+                          return (
+                            <div key={bar.key} className="video-summary-detail-page__analysis-metric-row">
+                              <div className="video-summary-detail-page__analysis-metric-label">
+                                <strong>{bar.label}</strong>
+                                <span>: {formatMetricPercent(bar.value)}</span>
+                              </div>
+                              <div className="video-summary-detail-page__analysis-metric-track">
+                                <span
+                                  className={`video-summary-detail-page__analysis-metric-fill ${bar.toneClassName}`}
+                                  style={{ width: `${percentage ?? 0}%` }}
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </article>
+
+                    <article className="video-summary-detail-page__analysis-compact-card video-summary-detail-page__analysis-emotion-card">
                         <div className="video-summary-detail-page__analysis-compact-header">
-                          <h3>편향 단어 보기</h3>
+                          <h3>Emotion KEY WORD</h3>
                         </div>
 
-                        {analysisKeywordItems.length ? (
-                          <div className="video-summary-detail-page__analysis-keyword-cloud">
-                            {analysisKeywordItems.map((keyword) => (
+                        {visibleEmotionKeywordItems.length ? (
+                          <div className="video-summary-detail-page__analysis-keyword-cloud video-summary-detail-page__analysis-keyword-cloud--emotion">
+                            {visibleEmotionKeywordItems.map((keyword) => (
                               <span
                                 key={`${keyword.keywordType}-${keyword.keywordText}`}
-                                className="video-summary-detail-page__analysis-keyword-chip"
+                                className="video-summary-detail-page__analysis-keyword-chip video-summary-detail-page__analysis-keyword-chip--emotion"
                               >
                                 {keyword.keywordText}
                               </span>
@@ -1276,15 +1309,24 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                           </div>
                         ) : (
                           <p className="video-summary-detail-page__analysis-empty">
-                            아직 표시할 편향 단어가 없습니다.
+                            아직 표시할 감정 키워드가 없습니다.
                           </p>
                         )}
                       </article>
 
-                      <div className="video-summary-detail-page__analysis-side-metric-list">
-                        {analysisSideMetricCards.map(renderSideMetricCard)}
-                      </div>
-                    </aside>
+                    <p className="video-summary-detail-page__analysis-score-evidence">
+                      <span className="video-summary-detail-page__analysis-score-evidence-label">
+                        =&gt; Score Evidence :
+                      </span>{' '}
+                      {renderHighlightedEvidenceText(scoreEvidenceText)}
+                    </p>
+
+                    <HeadlineBodyGapCard
+                      score={analysisResult?.headlineBodyGapScore}
+                      lead={analysisResult?.headlineBodyGapLead}
+                      tail={analysisResult?.headlineBodyGapTail}
+                      label={analysisResult?.headlineBodyGapLabel}
+                    />
                   </div>
 
                   {analysisErrorMessage ? (
@@ -1428,13 +1470,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                         </div>
 
                         <div className="video-summary-detail-page__analysis-summary-grid">
-                          {analysisResult.perspectiveSummary ? (
-                            <article className="video-summary-detail-page__analysis-summary-block">
-                              <h5>관점 요약</h5>
-                              <p>{analysisResult.perspectiveSummary}</p>
-                            </article>
-                          ) : null}
-
                           {renderScoreCard(emotionScoreCard)}
 
                           {analysisResult.evidenceSummary ? (
