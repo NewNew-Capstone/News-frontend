@@ -1545,7 +1545,7 @@ function RecommendationVideoCard({ node, countryCode, onClick }) {
     <Html
       sprite
       center
-      distanceFactor={18}
+      distanceFactor={3}
       className="comparison-graph-page__recommendation-card-wrap"
     >
       <button
@@ -1585,7 +1585,7 @@ function ComparisonGraph({ graphData, onNodeOpen }) {
   const [revealedCountryCode, setRevealedCountryCode] = useState('')
   const [visibleNodeCount, setVisibleNodeCount] = useState(0)
   const selectedVideo = graphData.selectedVideo
-  const activeCountryVideos = revealedCountryCode ? getCountryVideos(graphData, revealedCountryCode).slice(1, 2) : []
+  const activeCountryVideos = revealedCountryCode ? getCountryVideos(graphData, revealedCountryCode).slice(0, 4) : []
   const visibleCountryVideos = activeCountryVideos.slice(0, visibleNodeCount)
   const videoPositionRefs = useRef([])
   const selectedPosition = [0, 0.82, 0.36]
@@ -1594,7 +1594,10 @@ function ComparisonGraph({ graphData, onNodeOpen }) {
   const inactiveCountryPosition = activeCountryCode === 'US' ? [1.9, -0.95, -1.18] : [-1.9, -0.95, -1.18]
   const videoAnchorSide = revealedCountryCode === 'CN' ? 1 : -1
   const videoAnchors = [
-    [videoAnchorSide * 0.96, -0.2],
+    [videoAnchorSide * 0.85, 0.7],
+    [videoAnchorSide * 1.85, 0.7],
+    [videoAnchorSide * 0.85, -0.7],
+    [videoAnchorSide * 1.85, -0.7],
   ]
 
   const handleCountryClick = (countryCode) => {
@@ -1614,9 +1617,9 @@ function ComparisonGraph({ graphData, onNodeOpen }) {
       setRevealedCountryCode(activeCountryCode)
       revealInterval = window.setInterval(() => {
         setVisibleNodeCount((currentCount) => {
-          const nextCount = Math.min(currentCount + 1, 1)
+          const nextCount = Math.min(currentCount + 1, 4)
 
-          if (nextCount >= 1 && revealInterval) {
+          if (nextCount >= 4 && revealInterval) {
             window.clearInterval(revealInterval)
           }
 
