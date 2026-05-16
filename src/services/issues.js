@@ -47,6 +47,16 @@ function extractErrorMessage(payload) {
     return payload
   }
 
+  const statusCode = payload.status?.statusCode || payload.status?.code || payload.code || ''
+
+  if (statusCode === 'IS006') {
+    return '현재 영상 분석이 아직 완료되지 않았습니다. 잠시 후 다시 시도해 주세요.'
+  }
+
+  if (statusCode === 'IS007') {
+    return '같은 이슈 묶음에서 반대 관점 영상을 찾을 수 없습니다.'
+  }
+
   return (
     payload.status?.description ||
     payload.status?.message ||
@@ -93,6 +103,7 @@ async function requestJson(path, { query, accessToken, fallbackErrorMessage }) {
     if (!response.ok) {
       const error = new Error(extractErrorMessage(payload) || fallbackErrorMessage)
       error.status = response.status
+      error.statusCode = payload?.status?.statusCode || payload?.status?.code || ''
       throw error
     }
 
@@ -128,6 +139,28 @@ function extractResponseBody(payload) {
 
 function normalizeIssueResults(results) {
   return Array.isArray(results) ? results.filter((item) => item && typeof item === 'object') : []
+}
+
+function normalizeIssueScore(value) {
+  const numericValue = Number(value)
+
+  return Number.isFinite(numericValue) ? numericValue : null
+}
+
+function normalizeOpposingVideo(body = {}) {
+  return {
+    youtubeVideoId: body.youtubeVideoId || body.youtube_video_id || '',
+    title: body.title || '',
+    channelName: body.channelName || body.channel_name || '',
+    summaryText: body.summaryText || body.summary_text || '',
+    opinionScore: normalizeIssueScore(body.opinionScore ?? body.opinion_score),
+    overallBiasScore: normalizeIssueScore(body.overallBiasScore ?? body.overall_bias_score),
+    opinionGap: normalizeIssueScore(body.opinionGap ?? body.opinion_gap),
+    scoreEvidence: body.scoreEvidence || body.score_evidence || '',
+    analysisKeywords: Array.isArray(body.analysisKeywords ?? body.analysis_keywords)
+      ? body.analysisKeywords ?? body.analysis_keywords
+      : [],
+  }
 }
 
 export async function fetchIssueSearchResults({ searchKeyword }, accessToken) {
@@ -196,4 +229,36 @@ export async function fetchIssueComparison(countryVideos, accessToken) {
     searchKeyword: body.searchKeyword || '',
     countries: normalizeIssueResults(body.countries),
   }
+}
+
+export async function fetchOpposingIssueVideo(videoId, accessToken) {
+  const token = getAccessToken(accessToken)
+
+  if (!token) {
+    throw new Error('반대 영상 분석 결과를 보려면 다시 로그인해 주세요.')
+  }
+
+  const normalizedVideoId = typeof videoId === 'string' ? videoId.trim() : String(videoId || '').trim()
+
+  if (!normalizedVideoId) {
+    throw new Error('반대 영상 분석 결과를 조회할 영상 ID가 없습니다.')
+  }
+
+  const payload = await requestJson('/api/v1/issues/opposing', {
+    accessToken: token,
+    query: {
+      videoId: normalizedVideoId,
+    },
+    fallbackErrorMessage: '반대 영상 분석 결과를 불러오지 못했습니다.',
+  })
+
+  const statusCode = payload?.status?.statusCode || payload?.status?.code || ''
+
+  if (statusCode && statusCode !== 'C000') {
+    const error = new Error(payload?.status?.message || '반대 영상 분석 결과를 불러오지 못했습니다.')
+    error.statusCode = statusCode
+    throw error
+  }
+
+  return normalizeOpposingVideo(extractResponseBody(payload) || {})
 }

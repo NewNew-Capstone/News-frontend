@@ -41,6 +41,15 @@ const navItems = [
   { key: 'compare', label: '국가별 비교', href: '#comparison', Icon: CompareIcon },
 ]
 
+function clearSummaryPageState() {
+  try {
+    window.sessionStorage.removeItem('video-summary-page-state')
+    window.sessionStorage.removeItem('video-summary-page-restore')
+  } catch {
+    // Navigation should still work if storage is blocked.
+  }
+}
+
 function Navbar({ activeKey, isLoggedIn, onAuthClick, serviceHref = '#home', maxWidth }) {
   const navbarStyle = maxWidth ? { '--site-navbar-max-width': maxWidth } : undefined
 
@@ -58,6 +67,7 @@ function Navbar({ activeKey, isLoggedIn, onAuthClick, serviceHref = '#home', max
               activeKey === item.key ? 'site-navbar__link--active' : ''
             }`}
             href={item.href}
+            onClick={item.key === 'summary' ? clearSummaryPageState : undefined}
           >
             <item.Icon className="site-navbar__icon" />
             <span>{item.label}</span>

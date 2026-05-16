@@ -163,38 +163,6 @@
   background: linear-gradient(135deg, #dbe6f7 0%, #eef4fb 100%);
 }
 
-.rotating-article-carousel__play-mark {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 2;
-  display: inline-grid;
-  place-items: center;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.94);
-  color: var(--blue, #3182F6);
-  box-shadow:
-    0 14px 30px rgba(13, 32, 66, 0.22),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.62);
-  transform: translate(-50%, -50%);
-  transition:
-    transform 200ms ease,
-    opacity 200ms ease;
-}
-
-.rotating-article-carousel__play-mark svg {
-  width: 28px;
-  height: 28px;
-  margin-left: 2px;
-}
-
-.rotating-article-carousel__card:not(.rotating-article-carousel__card--active) .rotating-article-carousel__play-mark {
-  opacity: 0.72;
-  transform: translate(-50%, -50%) scale(0.86);
-}
-
 .rotating-article-carousel__body {
   display: grid;
   gap: 12px;
@@ -456,16 +424,6 @@
     -webkit-line-clamp: 3;
   }
 
-  .rotating-article-carousel__play-mark {
-    width: 44px;
-    height: 44px;
-  }
-
-  .rotating-article-carousel__play-mark svg {
-    width: 23px;
-    height: 23px;
-  }
-
   .rotating-article-carousel__arrow {
     top: 132px;
     width: 38px;
@@ -500,8 +458,7 @@
   .rotating-article-carousel__card,
   .rotating-article-carousel__arrow,
   .rotating-article-carousel__bookmark,
-  .rotating-article-carousel__dot,
-  .rotating-article-carousel__play-mark {
+  .rotating-article-carousel__dot {
     transition: none;
   }
 }

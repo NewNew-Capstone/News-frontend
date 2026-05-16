@@ -20,9 +20,16 @@ import './VideoSummary.css'
 const NEWS_POLITICS_KEYWORD_FALLBACK = ['정치 이슈', '국회', '북한']
 const TRENDING_KEYWORD_LIMIT = 3
 const SUMMARY_PAGE_STATE_KEY = 'video-summary-page-state'
+const SUMMARY_PAGE_RESTORE_KEY = 'video-summary-page-restore'
 
 function readStoredSummaryPageState() {
   try {
+    if (window.sessionStorage.getItem(SUMMARY_PAGE_RESTORE_KEY) !== 'true') {
+      return {}
+    }
+
+    window.sessionStorage.removeItem(SUMMARY_PAGE_RESTORE_KEY)
+
     const rawState = window.sessionStorage.getItem(SUMMARY_PAGE_STATE_KEY)
 
     if (!rawState) {
@@ -36,6 +43,15 @@ function readStoredSummaryPageState() {
 }
 
 function writeStoredSummaryPageState(nextState) {
+  try {
+    window.sessionStorage.setItem(SUMMARY_PAGE_STATE_KEY, JSON.stringify(nextState))
+    window.sessionStorage.setItem(SUMMARY_PAGE_RESTORE_KEY, 'true')
+  } catch {
+    // Restoring the page is a convenience; navigation should still work if storage is blocked.
+  }
+}
+
+function cacheSummarySearchState(nextState) {
   try {
     window.sessionStorage.setItem(SUMMARY_PAGE_STATE_KEY, JSON.stringify(nextState))
   } catch {
@@ -381,7 +397,7 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
     if (!trimmedKeyword) {
       setSearchMessage('검색어를 입력해 주세요.')
       setSearchSection(null)
-      writeStoredSummaryPageState({
+      cacheSummarySearchState({
         query: '',
         searchSection: null,
         scrollY: 0,
@@ -397,7 +413,7 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
       const nextSearchSection = createSearchSection(trimmedKeyword, videos, scrapLookup)
 
       setSearchSection(nextSearchSection)
-      writeStoredSummaryPageState({
+      cacheSummarySearchState({
         query: trimmedKeyword,
         searchSection: nextSearchSection,
         scrollY: 0,

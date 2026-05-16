@@ -21,14 +21,6 @@ function ArrowIcon({ direction = 'right' }) {
   )
 }
 
-function PlayIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M9 7.5v9l7-4.5-7-4.5Z" fill="currentColor" />
-    </svg>
-  )
-}
-
 function normalizeIndex(index, length) {
   if (!length) {
     return 0
@@ -243,9 +235,6 @@ function RotatingArticleCarousel({
                         alt={article.title}
                         placeholder={<div className="rotating-article-carousel__placeholder" />}
                       />
-                      <span className="rotating-article-carousel__play-mark" aria-hidden="true">
-                        <PlayIcon />
-                      </span>
                     </div>
 
                     <div className="rotating-article-carousel__body">
