@@ -688,7 +688,7 @@
 .video-summary-detail-page__analysis-total-card {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(180px, 0.46fr) minmax(0, 1fr);
+  grid-template-columns: minmax(170px, 0.36fr) minmax(190px, 0.44fr) minmax(0, 1fr);
   gap: 0;
   overflow: hidden;
   padding: 0;
@@ -712,6 +712,7 @@
 }
 
 .video-summary-detail-page__analysis-total-score,
+.video-summary-detail-page__analysis-score-guide,
 .video-summary-detail-page__analysis-score-reason {
   padding: 18px 22px;
 }
@@ -728,7 +729,13 @@
     linear-gradient(180deg, rgba(235, 243, 255, 0.64), rgba(255, 255, 255, 0.18));
 }
 
+.video-summary-detail-page__analysis-score-guide {
+  border-right: 1px solid rgba(166, 199, 250, 0.74);
+  background: rgba(255, 255, 255, 0.42);
+}
+
 .video-summary-detail-page__analysis-total-score h3,
+.video-summary-detail-page__analysis-score-guide h3,
 .video-summary-detail-page__analysis-score-reason h3 {
   width: 100%;
   margin: 0;
@@ -736,6 +743,38 @@
   font-size: 0.98rem;
   font-weight: 950;
   letter-spacing: -0.02em;
+}
+
+.video-summary-detail-page__analysis-score-guide ul {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-summary-detail-page__analysis-score-guide li {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  color: #42526b;
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.video-summary-detail-page__analysis-score-guide li strong {
+  display: inline-flex;
+  justify-content: center;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(235, 243, 255, 0.94);
+  border: 1px solid rgba(145, 184, 248, 0.6);
+  color: var(--blue, #3182f6);
+  font-size: 0.74rem;
+  font-weight: 950;
+  white-space: nowrap;
 }
 
 .video-summary-detail-page__analysis-total-score strong {
@@ -2444,6 +2483,11 @@
   }
 
   .video-summary-detail-page__analysis-total-score {
+    border-right: 0;
+    border-bottom: 1px solid rgba(196, 216, 248, 0.94);
+  }
+
+  .video-summary-detail-page__analysis-score-guide {
     border-right: 0;
     border-bottom: 1px solid rgba(196, 216, 248, 0.94);
   }

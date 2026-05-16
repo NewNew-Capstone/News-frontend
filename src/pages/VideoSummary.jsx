@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Navbar from '../components/Navbar'
 import LoginModal from '../components/auth/LoginModal'
 import SummaryPublisherSection from '../components/summary/SummaryPublisherSection'
@@ -19,6 +19,29 @@ import './VideoSummary.css'
 
 const NEWS_POLITICS_KEYWORD_FALLBACK = ['정치 이슈', '국회', '북한']
 const TRENDING_KEYWORD_LIMIT = 3
+const SUMMARY_PAGE_STATE_KEY = 'video-summary-page-state'
+
+function readStoredSummaryPageState() {
+  try {
+    const rawState = window.sessionStorage.getItem(SUMMARY_PAGE_STATE_KEY)
+
+    if (!rawState) {
+      return {}
+    }
+
+    return JSON.parse(rawState) || {}
+  } catch {
+    return {}
+  }
+}
+
+function writeStoredSummaryPageState(nextState) {
+  try {
+    window.sessionStorage.setItem(SUMMARY_PAGE_STATE_KEY, JSON.stringify(nextState))
+  } catch {
+    // Restoring the page is a convenience; navigation should still work if storage is blocked.
+  }
+}
 
 function SearchGlyph() {
   return (
@@ -197,9 +220,15 @@ function findArticleBySection(searchSection, publishers, sectionId, articleId) {
 }
 
 function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup }) {
-  const [query, setQuery] = useState('')
+  const initialSummaryPageStateRef = useRef(null)
+
+  if (initialSummaryPageStateRef.current === null) {
+    initialSummaryPageStateRef.current = readStoredSummaryPageState()
+  }
+
+  const [query, setQuery] = useState(() => initialSummaryPageStateRef.current.query || '')
   const [publishers, setPublishers] = useState([])
-  const [searchSection, setSearchSection] = useState(null)
+  const [searchSection, setSearchSection] = useState(() => initialSummaryPageStateRef.current.searchSection || null)
   const [scrapLookup, setScrapLookup] = useState({})
   const [pendingScrapKeys, setPendingScrapKeys] = useState([])
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
@@ -227,8 +256,31 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
       return
     }
 
+    writeStoredSummaryPageState({
+      query,
+      searchSection,
+      scrollY: window.scrollY,
+    })
+
     window.location.hash = `#summary/video/${encodeURIComponent(youtubeVideoId)}`
   }
+
+  useEffect(() => {
+    const storedScrollY = initialSummaryPageStateRef.current.scrollY
+
+    if (typeof storedScrollY !== 'number' || storedScrollY <= 0) {
+      return undefined
+    }
+
+    const restoreTimer = window.setTimeout(() => {
+      window.scrollTo({
+        top: storedScrollY,
+        behavior: 'auto',
+      })
+    }, 0)
+
+    return () => window.clearTimeout(restoreTimer)
+  }, [])
 
   useEffect(() => {
     let isCancelled = false
@@ -329,6 +381,11 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
     if (!trimmedKeyword) {
       setSearchMessage('검색어를 입력해 주세요.')
       setSearchSection(null)
+      writeStoredSummaryPageState({
+        query: '',
+        searchSection: null,
+        scrollY: 0,
+      })
       return
     }
 
@@ -340,6 +397,11 @@ function VideoSummary({ isLoggedIn, onAuthClick, onLoginSuccess, onMoveToSignup 
       const nextSearchSection = createSearchSection(trimmedKeyword, videos, scrapLookup)
 
       setSearchSection(nextSearchSection)
+      writeStoredSummaryPageState({
+        query: trimmedKeyword,
+        searchSection: nextSearchSection,
+        scrollY: 0,
+      })
       setSearchMessage(videos.length ? '' : '검색 결과가 없습니다.')
     } catch (error) {
       setSearchSection(null)

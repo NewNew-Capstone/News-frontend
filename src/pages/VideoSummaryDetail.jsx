@@ -1073,15 +1073,8 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     setIsAnalysisModalOpen(true)
   }
 
-  const redirectToPreviousPage = () => {
+  const closeTranscriptErrorModal = () => {
     setTranscriptErrorMessage('')
-
-    if (window.history.length > 1) {
-      window.history.back()
-      return
-    }
-
-    window.location.hash = '#summary'
   }
 
   const handleConfirmAnalysis = async () => {
@@ -1325,6 +1318,17 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                             <strong>{formatScorePoints(subjectivityScoreCard.value)}</strong>
                             <span>종합 지표</span>
                           </div>
+                        </section>
+
+                        <section className="video-summary-detail-page__analysis-score-guide">
+                          <h3>점수 의미</h3>
+                          <ul>
+                            <li><strong>0~20점</strong><span>주관적 표현이 낮아요</span></li>
+                            <li><strong>21~40점</strong><span>약간의 해석이 있어요</span></li>
+                            <li><strong>41~60점</strong><span>의견과 정보가 섞여 있어요</span></li>
+                            <li><strong>61~80점</strong><span>주관적 표현이 많아요</span></li>
+                            <li><strong>81~100점</strong><span>감정적·주장형 표현이 강해요</span></li>
+                          </ul>
                         </section>
 
                         <section className="video-summary-detail-page__analysis-score-reason">
@@ -1854,7 +1858,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
             <div
               className="video-summary-detail-page__analysis-modal"
               role="presentation"
-              onClick={redirectToPreviousPage}
+              onClick={closeTranscriptErrorModal}
             >
               <div
                 className="video-summary-detail-page__analysis-dialog video-summary-detail-page__analysis-dialog--notice"
@@ -1866,7 +1870,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                 <button
                   type="button"
                   className="video-summary-detail-page__analysis-close"
-                  onClick={redirectToPreviousPage}
+                  onClick={closeTranscriptErrorModal}
                   aria-label="자막 오류 안내 닫기"
                 >
                   <CloseIcon />
@@ -1885,7 +1889,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                   <button
                     type="button"
                     className="video-summary-detail-page__analysis-action video-summary-detail-page__analysis-action--primary"
-                    onClick={redirectToPreviousPage}
+                    onClick={closeTranscriptErrorModal}
                   >
                     이전 화면으로 돌아가기
                   </button>
