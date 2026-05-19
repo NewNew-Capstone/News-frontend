@@ -589,20 +589,35 @@ export async function deleteMyAccount(accessToken = getAccessToken()) {
 }
 
 export function getStoredAuthSession() {
-  try {
-    localStorage.removeItem(AUTH_STORAGE_KEY)
-  } catch {
-    // localStorage may be unavailable.
+  if (inMemoryAuthSession) {
+    return inMemoryAuthSession
   }
 
-  return inMemoryAuthSession
+  try {
+    const rawSession = localStorage.getItem(AUTH_STORAGE_KEY)
+
+    if (!rawSession) {
+      return null
+    }
+
+    const storedSession = JSON.parse(rawSession)
+    inMemoryAuthSession = storedSession?.token ? storedSession : null
+
+    return inMemoryAuthSession
+  } catch {
+    return null
+  }
 }
 
 export function persistAuthSession(session) {
   inMemoryAuthSession = session || null
 
   try {
-    localStorage.removeItem(AUTH_STORAGE_KEY)
+    if (inMemoryAuthSession) {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(inMemoryAuthSession))
+    } else {
+      localStorage.removeItem(AUTH_STORAGE_KEY)
+    }
   } catch {
     // localStorage may be unavailable.
   }

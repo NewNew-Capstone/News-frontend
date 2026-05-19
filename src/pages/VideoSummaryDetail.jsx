@@ -663,6 +663,20 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     analysisResult?.opposingAnalysisSummary ||
     '현재 영상과 다른 관점에서 같은 이슈를 다루는 영상의 분석 결과를 이곳에서 비교합니다. 주관성 점수와 감정 표현, 핵심 주장 차이를 함께 확인할 수 있습니다.'
   const opposingAnalysisKeywords = (opposingAnalysisResult?.analysisKeywords || []).slice(0, 8)
+  const opposingMetricBars = [
+    {
+      key: 'opinion',
+      label: '의견성',
+      value: opposingAnalysisResult?.opinionScore ?? null,
+      toneClassName: 'video-summary-detail-page__analysis-metric-fill--opinion',
+    },
+    {
+      key: 'overall-bias',
+      label: '전체 편향도',
+      value: opposingAnalysisResult?.overallBiasScore ?? null,
+      toneClassName: 'video-summary-detail-page__analysis-metric-fill--emotion',
+    },
+  ]
   const scoreReasonText =
     analysisResult?.scoreReasonSummary ||
     analysisResult?.scoreEvidence ||
@@ -1000,7 +1014,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
     try {
       await navigator.clipboard.writeText(shareUrl)
-      setShareAnnouncement('링크를 복사했어요.')
+      setShareAnnouncement('링크 복사 완료')
     } catch {
       setShareAnnouncement('주소를 직접 복사해 주세요.')
     }
@@ -1259,7 +1273,15 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
               <div className="video-summary-detail-page__divider" />
 
               {shareAnnouncement ? (
-                <p className="video-summary-detail-page__status">{shareAnnouncement}</p>
+                <div className="video-summary-detail-page__share-toast" role="status">
+                  <span className="video-summary-detail-page__share-toast-icon">
+                    <ShareIcon />
+                  </span>
+                  <span>
+                    <strong>{shareAnnouncement}</strong>
+                    <small>영상 분석 링크를 클립보드에 저장했어요.</small>
+                  </span>
+                </div>
               ) : null}
 
               {actionErrorMessage ? (
@@ -1318,7 +1340,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                             aria-pressed={isOpposingAnalysisVisible}
                             onClick={handleToggleOpposingAnalysis}
                           >
-                            {isOpposingAnalysisVisible ? '반대 영상 접기' : '반대 영상 분석 결과 보기'}
+                            {isOpposingAnalysisVisible ? '다른 관점 영상 접기' : '다른 관점 영상 보기'}
                           </button>
                       </article>
 
@@ -1455,7 +1477,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                     aria-hidden={!isOpposingAnalysisVisible}
                   >
                     <header className="video-summary-detail-page__section-header video-summary-detail-page__section-header--opposing">
-                      <h2>반대 영상 분석 결과</h2>
+                      <h2>다른 관점의 영상</h2>
                       <span className="video-summary-detail-page__opposing-pane-badge">
                         {opposingAnalysisToneLabel}
                       </span>
@@ -1488,6 +1510,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                               alt={opposingAnalysisTitle}
                               placeholder={<div className="video-summary-detail-page__opposing-video-placeholder" />}
                             />
+                            <span className="video-summary-detail-page__hero-play">
+                              <PlayIcon />
+                            </span>
                           </a>
                         ) : (
                           <div className="video-summary-detail-page__opposing-video-placeholder">
@@ -1516,34 +1541,84 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                         </article>
                       </div>
 
-                        <article className="video-summary-detail-page__analysis-metric-card">
-                          <div className="video-summary-detail-page__analysis-metric-list">
-                            <div className="video-summary-detail-page__analysis-metric-row">
-                              <div className="video-summary-detail-page__analysis-metric-label">
-                                <strong>의견성</strong>
-                                <span>: {formatMetricPercent(opposingAnalysisResult.opinionScore)}</span>
+                      <section className="video-summary-detail-page__analysis-evidence-disclosure video-summary-detail-page__analysis-evidence-disclosure--opposing video-summary-detail-page__analysis-evidence-disclosure--open">
+                        <button
+                          type="button"
+                          className="video-summary-detail-page__analysis-evidence-toggle"
+                          aria-expanded="true"
+                          disabled
+                        >
+                          <span className="video-summary-detail-page__analysis-evidence-copy">
+                            <span>DETAIL EVIDENCE</span>
+                            <strong>반대 영상 분석 근거 자세히 보기</strong>
+                            <small>
+                              {opposingAnalysisResult.scoreEvidence ||
+                                '반대 영상의 점수 근거와 지표, 핵심 표현을 확인합니다.'}
+                            </small>
+                          </span>
+                          <span className="video-summary-detail-page__analysis-evidence-meta">
+                            <span>{formatScorePoints(opposingAnalysisResult.overallBiasScore)}</span>
+                            <ChevronDownIcon />
+                          </span>
+                        </button>
+
+                        <div className="video-summary-detail-page__analysis-evidence-panel">
+                          <article className="video-summary-detail-page__analysis-total-card">
+                            <section className="video-summary-detail-page__analysis-total-score">
+                              <h3>총 점수</h3>
+                              <div
+                                className="video-summary-detail-page__analysis-total-orb"
+                                style={{
+                                  '--analysis-total-score-percent': `${clampPercentage(opposingAnalysisResult.overallBiasScore) ?? 0}%`,
+                                }}
+                              >
+                                <strong>{formatScorePoints(opposingAnalysisResult.overallBiasScore)}</strong>
+                                <span>종합 지표</span>
                               </div>
-                              <div className="video-summary-detail-page__analysis-metric-track">
-                                <span
-                                  className="video-summary-detail-page__analysis-metric-fill video-summary-detail-page__analysis-metric-fill--opinion"
-                                  style={{ width: `${clampPercentage(opposingAnalysisResult.opinionScore) ?? 0}%` }}
-                                />
-                              </div>
+                            </section>
+
+                            <section className="video-summary-detail-page__analysis-score-guide">
+                              <h3>점수 의미</h3>
+                              <ul>
+                                <li><strong>0~20점</strong><span>주관적 표현이 낮아요</span></li>
+                                <li><strong>21~40점</strong><span>약간의 해석이 있어요</span></li>
+                                <li><strong>41~60점</strong><span>의견과 정보가 섞여 있어요</span></li>
+                                <li><strong>61~80점</strong><span>주관적 표현이 많아요</span></li>
+                                <li><strong>81~100점</strong><span>감정적·주장형 표현이 강해요</span></li>
+                              </ul>
+                            </section>
+
+                            <section className="video-summary-detail-page__analysis-score-reason">
+                              <h3>점수 근거</h3>
+                              <p>
+                                {opposingAnalysisResult.scoreEvidence ||
+                                  '반대 영상의 점수 근거가 제공되지 않았습니다.'}
+                              </p>
+                            </section>
+                          </article>
+
+                          <article className="video-summary-detail-page__analysis-metric-card">
+                            <div className="video-summary-detail-page__analysis-metric-list">
+                              {opposingMetricBars.map((bar) => {
+                                const percentage = clampPercentage(bar.value)
+
+                                return (
+                                  <div key={bar.key} className="video-summary-detail-page__analysis-metric-row">
+                                    <div className="video-summary-detail-page__analysis-metric-label">
+                                      <strong>{bar.label}</strong>
+                                      <span>: {formatMetricPercent(bar.value)}</span>
+                                    </div>
+                                    <div className="video-summary-detail-page__analysis-metric-track">
+                                      <span
+                                        className={`video-summary-detail-page__analysis-metric-fill ${bar.toneClassName}`}
+                                        style={{ width: `${percentage ?? 0}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                )
+                              })}
                             </div>
-                            <div className="video-summary-detail-page__analysis-metric-row">
-                              <div className="video-summary-detail-page__analysis-metric-label">
-                                <strong>전체 편향도</strong>
-                                <span>: {formatMetricPercent(opposingAnalysisResult.overallBiasScore)}</span>
-                              </div>
-                              <div className="video-summary-detail-page__analysis-metric-track">
-                                <span
-                                  className="video-summary-detail-page__analysis-metric-fill video-summary-detail-page__analysis-metric-fill--emotion"
-                                  style={{ width: `${clampPercentage(opposingAnalysisResult.overallBiasScore) ?? 0}%` }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </article>
+                          </article>
 
                       {opposingAnalysisKeywords.length ? (
                         <article className="video-summary-detail-page__analysis-compact-card video-summary-detail-page__analysis-emotion-card">
@@ -1562,30 +1637,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                           </div>
                         </article>
                       ) : null}
-
-                      <section className="video-summary-detail-page__analysis-evidence-disclosure video-summary-detail-page__analysis-evidence-disclosure--opposing">
-                        <button
-                          type="button"
-                          className="video-summary-detail-page__analysis-evidence-toggle"
-                          aria-expanded="false"
-                          disabled
-                        >
-                          <span className="video-summary-detail-page__analysis-evidence-copy">
-                            <span>DETAIL EVIDENCE</span>
-                            <strong>{opposingAnalysisResult ? '반대 영상 분석 근거' : '반대 영상 분석 근거 준비 중'}</strong>
-                            <small>
-                              {opposingAnalysisResult?.scoreEvidence ||
-                                '반대 영상 분석 결과를 불러오면 점수 근거가 이곳에 표시됩니다.'}
-                            </small>
-                          </span>
-                          <span className="video-summary-detail-page__analysis-evidence-meta">
-                            {opposingAnalysisResult?.overallBiasScore !== null &&
-                            opposingAnalysisResult?.overallBiasScore !== undefined ? (
-                              <span>{formatScorePoints(opposingAnalysisResult.overallBiasScore)}</span>
-                            ) : null}
-                            <ChevronDownIcon />
-                          </span>
-                        </button>
+                        </div>
                       </section>
                       </>
                       ) : null}

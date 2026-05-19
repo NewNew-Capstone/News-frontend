@@ -248,6 +248,7 @@
 }
 
 .video-summary-detail-page__opposing-video-card {
+  position: relative;
   display: block;
   min-height: 310px;
   overflow: hidden;
@@ -266,6 +267,13 @@
   height: 100%;
   min-height: 310px;
   object-fit: cover;
+}
+
+.video-summary-detail-page__opposing-video-card:hover .video-summary-detail-page__hero-play,
+.video-summary-detail-page__opposing-video-card:focus-visible .video-summary-detail-page__hero-play {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 12px 40px rgba(244, 63, 94, 0.28);
+  animation: none;
 }
 
 .video-summary-detail-page__analysis-report--opposing .video-summary-detail-page__analysis-top-grid {
@@ -1411,6 +1419,74 @@
 }
 
 /* ── Accessibility ── */
+.video-summary-detail-page__share-toast {
+  position: fixed;
+  top: 92px;
+  right: max(24px, calc((100vw - 1320px) / 2 + 24px));
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 13px 16px 13px 13px;
+  border-radius: 18px;
+  border: 1px solid rgba(145, 184, 248, 0.76);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 247, 255, 0.98));
+  color: var(--text-strong, #191f28);
+  box-shadow:
+    0 18px 42px rgba(31, 84, 152, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  animation: vsdShareToastIn 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.video-summary-detail-page__share-toast-icon {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #3182f6 0%, #1b6ee8 100%);
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(49, 130, 246, 0.22);
+}
+
+.video-summary-detail-page__share-toast-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.video-summary-detail-page__share-toast span:last-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.video-summary-detail-page__share-toast strong {
+  font-size: 0.95rem;
+  font-weight: 950;
+}
+
+.video-summary-detail-page__share-toast small {
+  color: var(--text-medium, #6b7785);
+  font-size: 0.8rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+@keyframes vsdShareToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .video-summary-detail-page__sr-only {
   position: absolute;
   width: 1px;

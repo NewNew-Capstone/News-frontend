@@ -1,6 +1,7 @@
 import { Environment, Html, Text } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import * as THREE from 'three'
 import Navbar from '../components/Navbar'
 import YoutubeThumbnail from '../components/YoutubeThumbnail'
@@ -18,6 +19,46 @@ const countryDisplay = {
   KR: { name: 'Korea', localName: '대한민국', tone: 'kr' },
   US: { name: 'United States', localName: '미국', tone: 'us' },
   CN: { name: 'China', localName: '중국', tone: 'cn' },
+}
+
+const COMPARISON_COUNTRY_CODES = ['KR', 'US', 'CN']
+const COMPARISON_SELECTED_VIDEO_KEY = 'comparison-selected-video'
+
+function getSelectedCenteredCountryCodes(selectedCountryCode = 'KR') {
+  const centerCountryCode = COMPARISON_COUNTRY_CODES.includes(selectedCountryCode)
+    ? selectedCountryCode
+    : 'KR'
+  const sideCountryCodes = COMPARISON_COUNTRY_CODES.filter((countryCode) => countryCode !== centerCountryCode)
+
+  return [sideCountryCodes[0], centerCountryCode, sideCountryCodes[1]]
+}
+
+function cacheSelectedComparisonVideo(video) {
+  try {
+    window.sessionStorage.setItem(COMPARISON_SELECTED_VIDEO_KEY, JSON.stringify(video))
+  } catch {
+    // Graph navigation should still work if storage is blocked.
+  }
+}
+
+function readCachedSelectedComparisonVideo(videoId = '') {
+  try {
+    const rawVideo = window.sessionStorage.getItem(COMPARISON_SELECTED_VIDEO_KEY)
+
+    if (!rawVideo) {
+      return null
+    }
+
+    const video = JSON.parse(rawVideo)
+
+    if (!videoId || video?.videoId === videoId || video?.id === videoId) {
+      return video
+    }
+  } catch {
+    return null
+  }
+
+  return null
 }
 
 const fallbackKeywords = ['AI 반도체', '미중 갈등', '기후 정상회의', '전기차 관세', '중동 정세']
@@ -62,23 +103,27 @@ function getCountryMeta(countryCode = '') {
   }
 }
 
-function createMockComparisonGraph(videoId) {
+function createMockComparisonGraph(videoId, selectedVideoOverride = null) {
   const selectedVideoId = videoId || 'mock-selected-video'
   const mockThumbnail = () => mockComparisonThumbnail
+  const selectedCountryCode = COMPARISON_COUNTRY_CODES.includes(selectedVideoOverride?.countryCode)
+    ? selectedVideoOverride.countryCode
+    : 'KR'
+  const selectedCountry = getCountryMeta(selectedCountryCode)
 
   return {
     selectedVideo: {
-      id: selectedVideoId,
-      videoId: selectedVideoId,
-      title: '선택한 영상: 같은 이슈를 다룬 국내 보도',
-      thumbnailUrl: mockThumbnail('dQw4w9WgXcQ'),
-      channelName: 'Mock Korea News',
-      viewCount: 128400,
-      publishedAt: '2026-05-12T09:00:00Z',
-      countryCode: 'KR',
-      countryName: 'Korea',
-      countryLocalLabel: '대한민국',
-      language: 'ko',
+      id: selectedVideoOverride?.id || selectedVideoId,
+      videoId: selectedVideoOverride?.videoId || selectedVideoId,
+      title: selectedVideoOverride?.title || '선택한 영상: 같은 이슈를 다룬 국내 보도',
+      thumbnailUrl: selectedVideoOverride?.thumbnailUrl || mockThumbnail('dQw4w9WgXcQ'),
+      channelName: selectedVideoOverride?.channelName || `Mock ${selectedCountry.name} News`,
+      viewCount: selectedVideoOverride?.viewCount ?? 128400,
+      publishedAt: selectedVideoOverride?.publishedAt || '2026-05-12T09:00:00Z',
+      countryCode: selectedCountryCode,
+      countryName: selectedCountry.name,
+      countryLocalLabel: selectedCountry.localName,
+      language: selectedVideoOverride?.language || (selectedCountryCode === 'KR' ? 'ko' : selectedCountryCode === 'CN' ? 'zh' : 'en'),
       analysisStatus: 'MOCK_READY',
       nodeType: 'selected',
     },
@@ -392,7 +437,7 @@ function CountryVideoCarousel({ section, videos, onOpenVideo }) {
       return
     }
 
-    onOpenVideo(video.videoId)
+    onOpenVideo(video.videoId, video)
   }
 
   return (
@@ -513,6 +558,14 @@ function createRecommendedSectionsFromSummaryVideos(videos = []) {
   }))
 }
 
+function orderSectionsBySelectedCountry(sections = [], selectedCountryCode = 'KR') {
+  const byCountry = new Map(sections.map((section) => [section.countryCode, section]))
+
+  return getSelectedCenteredCountryCodes(selectedCountryCode)
+    .map((countryCode) => byCountry.get(countryCode))
+    .filter(Boolean)
+}
+
 function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
   const [query, setQuery] = useState('')
   const [activeKeyword, setActiveKeyword] = useState('')
@@ -595,9 +648,13 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
     runSearch(query)
   }
 
-  const handleOpenVideo = (videoId) => {
+  const handleOpenVideo = (videoId, video = null) => {
     if (!videoId) {
       return
+    }
+
+    if (video) {
+      cacheSelectedComparisonVideo(video)
     }
 
     goToHashRoute(`comparison/graph/${encodeURIComponent(videoId)}`)
@@ -652,7 +709,7 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
             ) : null}
 
             <div className="country-compare-page__country-stack">
-              {sections.map((section) => (
+              {orderSectionsBySelectedCountry(sections, 'KR').map((section) => (
                 <CountryVideoSection
                   key={section.countryCode}
                   section={section}
@@ -815,23 +872,20 @@ function ActiveLightMarker({ activeCountryCode, position }) {
   )
 }
 
-function CameraRig({ activeCountryCode }) {
+function CameraRig({ activeCountryCode, activePosition = [0, -0.05, -0.65] }) {
   const { camera } = useThree()
   const eyeRef = useRef(new THREE.Vector3(0, 0.25, 6.4))
   const lookAtRef = useRef(new THREE.Vector3(0, -0.05, -0.65))
   const upRef = useRef(new THREE.Vector3(0, 1, 0))
 
   useFrame(() => {
-    const focus =
-      activeCountryCode === 'US'
-        ? new THREE.Vector3(-1.24, -0.18, -1.02)
-        : activeCountryCode === 'CN'
-          ? new THREE.Vector3(1.24, -0.18, -1.02)
-          : new THREE.Vector3(0, -0.05, -0.65)
-    const yaw = activeCountryCode === 'US' ? -0.72 : activeCountryCode === 'CN' ? 0.72 : 0
+    const focus = activeCountryCode
+      ? new THREE.Vector3(activePosition[0], activePosition[1] - 0.08, activePosition[2] - 0.3)
+      : new THREE.Vector3(0, -0.05, -0.65)
+    const yaw = activeCountryCode ? (activePosition[0] < 0 ? -0.72 : 0.72) : 0
     const pitch = activeCountryCode ? 0.24 : 0.04
     const distance = activeCountryCode ? 5.95 : 6.42
-    const roll = activeCountryCode === 'US' ? 0.16 : activeCountryCode === 'CN' ? -0.16 : 0
+    const roll = activeCountryCode ? (activePosition[0] < 0 ? 0.16 : -0.16) : 0
     const targetEye = new THREE.Vector3(
       focus.x + Math.sin(yaw) * Math.cos(pitch) * distance,
       focus.y + Math.sin(pitch) * distance + 0.12,
@@ -972,6 +1026,25 @@ function CameraFacingVideoGroup({
 }
 
 function FlagMark({ countryCode, position = [-0.31, 0, 0.04], scale = [0.16, 0.105, 1] }) {
+  if (countryCode === 'KR') {
+    return (
+      <group position={position} scale={scale}>
+        <mesh position={[0, 0, 0.01]}>
+          <planeGeometry args={[1, 0.66]} />
+          <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+        </mesh>
+        <mesh position={[-0.035, 0, 0.018]}>
+          <circleGeometry args={[0.18, 32, 0, Math.PI]} />
+          <meshBasicMaterial color="#cd2e3a" side={THREE.DoubleSide} />
+        </mesh>
+        <mesh position={[0.035, 0, 0.019]} rotation={[0, 0, Math.PI]}>
+          <circleGeometry args={[0.18, 32, 0, Math.PI]} />
+          <meshBasicMaterial color="#0047a0" side={THREE.DoubleSide} />
+        </mesh>
+      </group>
+    )
+  }
+
   if (countryCode === 'US') {
     return (
       <group position={position} scale={scale}>
@@ -1171,7 +1244,33 @@ function createCountrySphereTexture(countryCode) {
     return null
   }
 
-  if (countryCode === 'US') {
+  if (countryCode === 'KR') {
+    context.fillStyle = '#f8fbff'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    context.fillStyle = '#cd2e3a'
+    context.beginPath()
+    context.arc(canvas.width * 0.5, canvas.height * 0.5, 68, 0, Math.PI)
+    context.fill()
+    context.fillStyle = '#0047a0'
+    context.beginPath()
+    context.arc(canvas.width * 0.5, canvas.height * 0.5, 68, Math.PI, Math.PI * 2)
+    context.fill()
+    context.fillStyle = '#111827'
+    ;[
+      [0.24, 0.25],
+      [0.76, 0.25],
+      [0.24, 0.75],
+      [0.76, 0.75],
+    ].forEach(([x, y]) => {
+      context.save()
+      context.translate(canvas.width * x, canvas.height * y)
+      context.rotate(x < 0.5 ? -0.58 : 0.58)
+      for (let index = -1; index <= 1; index += 1) {
+        context.fillRect(-38, index * 18 - 4, 76, 8)
+      }
+      context.restore()
+    })
+  } else if (countryCode === 'US') {
     const stripeHeight = canvas.height / 13
     context.fillStyle = '#ffffff'
     context.fillRect(0, 0, canvas.width, canvas.height)
@@ -1245,8 +1344,8 @@ function createGeneratedVideoThumbnailTexture(node) {
   }
 
   const countryCode = node?.countryCode || 'US'
-  const accentColor = countryCode === 'CN' ? '#de2910' : '#3182f6'
-  const secondaryColor = countryCode === 'CN' ? '#ffde00' : '#77d9d5'
+  const accentColor = countryCode === 'CN' ? '#de2910' : countryCode === 'KR' ? '#0047a0' : '#3182f6'
+  const secondaryColor = countryCode === 'CN' ? '#ffde00' : countryCode === 'KR' ? '#cd2e3a' : '#77d9d5'
   const title = String(node?.title || 'Related news video')
 
   const background = context.createLinearGradient(0, 0, canvas.width, canvas.height)
@@ -1270,7 +1369,7 @@ function createGeneratedVideoThumbnailTexture(node) {
   context.fillRect(0, 0, canvas.width, 18)
   context.fillStyle = 'rgba(255, 255, 255, 0.92)'
   context.font = '900 46px Arial, sans-serif'
-  context.fillText(countryCode === 'CN' ? 'CHINA NEWS' : 'US NEWS', 42, 82)
+  context.fillText(countryCode === 'CN' ? 'CHINA NEWS' : countryCode === 'KR' ? 'KOREA NEWS' : 'US NEWS', 42, 82)
 
   context.fillStyle = '#ffffff'
   context.font = '900 38px Arial, sans-serif'
@@ -1303,7 +1402,7 @@ function createGeneratedVideoThumbnailTexture(node) {
 }
 
 function VideoThumbnailPlate({ node }) {
-  const texture = useMemo(() => createGeneratedVideoThumbnailTexture(node), [node?.countryCode, node?.title, node?.videoId])
+  const texture = useMemo(() => createGeneratedVideoThumbnailTexture(node), [node])
   const geometry = useMemo(() => {
     const radius = 1.108
     const centerAngle = 0
@@ -1479,7 +1578,7 @@ function SpatialNode({
   const labelMatrixRef = useRef(new THREE.Matrix4())
   const labelQuaternionRef = useRef(new THREE.Quaternion())
   const countryTexture = useMemo(
-    () => (!videoNode && (flagCode === 'US' || flagCode === 'CN') ? createCountrySphereTexture(flagCode) : null),
+    () => (!videoNode && COMPARISON_COUNTRY_CODES.includes(flagCode) ? createCountrySphereTexture(flagCode) : null),
     [flagCode, videoNode],
   )
   const color =
@@ -1551,7 +1650,7 @@ function RecommendationVideoCard({ node, countryCode, onClick }) {
       <button
         className="comparison-graph-page__recommendation-card"
         type="button"
-        onClick={() => onClick(node.videoId)}
+        onClick={() => onClick(node)}
       >
         <div className="comparison-graph-page__recommendation-thumb">
           <YoutubeThumbnail
@@ -1580,25 +1679,35 @@ function getCountryVideos(graphData, countryCode) {
   return videos.length ? videos : graphData.nodes.filter((node) => node.videoId !== selectedVideoId).slice(0, 3)
 }
 
-function ComparisonGraph({ graphData, onNodeOpen }) {
+function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
   const [activeCountryCode, setActiveCountryCode] = useState('')
   const [revealedCountryCode, setRevealedCountryCode] = useState('')
   const [visibleNodeCount, setVisibleNodeCount] = useState(0)
   const selectedVideo = graphData.selectedVideo
+  const selectedCountryCode = selectedVideo?.countryCode || 'KR'
+  const [leftCountryCode, , rightCountryCode] = getSelectedCenteredCountryCodes(selectedCountryCode)
+  const sideCountryCodes = [leftCountryCode, rightCountryCode]
   const activeCountryVideos = revealedCountryCode ? getCountryVideos(graphData, revealedCountryCode).slice(0, 4) : []
   const visibleCountryVideos = activeCountryVideos.slice(0, visibleNodeCount)
-  const videoPositionRefs = useRef([])
   const selectedPosition = [0, 0.82, 0.36]
-  const usPosition = activeCountryCode === 'US' ? [-1.2, -0.1, -0.72] : [-1.65, -0.72, 0.24]
-  const cnPosition = activeCountryCode === 'CN' ? [1.2, -0.1, -0.72] : [1.65, -0.72, 0.24]
-  const inactiveCountryPosition = activeCountryCode === 'US' ? [1.9, -0.95, -1.18] : [-1.9, -0.95, -1.18]
-  const videoAnchorSide = revealedCountryCode === 'CN' ? 1 : -1
+  const leftCountryPosition = activeCountryCode === leftCountryCode ? [-1.2, -0.1, -0.72] : [-1.65, -0.72, 0.24]
+  const rightCountryPosition = activeCountryCode === rightCountryCode ? [1.2, -0.1, -0.72] : [1.65, -0.72, 0.24]
+  const sideCountryPositions = {
+    [leftCountryCode]: leftCountryPosition,
+    [rightCountryCode]: rightCountryPosition,
+  }
+  const activeCountryPosition = sideCountryPositions[activeCountryCode] || selectedPosition
+  const videoAnchorSide = revealedCountryCode === rightCountryCode ? 1 : -1
   const videoAnchors = [
     [videoAnchorSide * 0.85, 0.7],
     [videoAnchorSide * 1.85, 0.7],
     [videoAnchorSide * 0.85, -0.7],
     [videoAnchorSide * 1.85, -0.7],
   ]
+  const videoPositionRefs = useMemo(
+    () => visibleCountryVideos.map(() => new THREE.Vector3(...activeCountryPosition)),
+    [activeCountryPosition, visibleCountryVideos],
+  )
 
   const handleCountryClick = (countryCode) => {
     const nextCountryCode = activeCountryCode === countryCode ? '' : countryCode
@@ -1648,30 +1757,33 @@ function ComparisonGraph({ graphData, onNodeOpen }) {
         <directionalLight color="#ffffff" intensity={1.7} position={[3.4, 4.2, 4]} />
         <pointLight color="#8fb8ff" intensity={8} position={[-3.8, 0.6, 2.8]} />
         <pointLight color="#ffffff" intensity={4} position={[3.2, -1.8, 3.2]} />
-        <CameraRig activeCountryCode={activeCountryCode} />
+        <CameraRig activeCountryCode={activeCountryCode} activePosition={activeCountryPosition} />
         <SpatialReferenceGrid />
         <SpatialPointCloud />
         <ClusterFocusRings
           activeCountryCode={activeCountryCode}
-          position={activeCountryCode === 'CN' ? cnPosition : usPosition}
+          position={activeCountryPosition}
         />
         <ActiveLightMarker
           activeCountryCode={activeCountryCode}
-          position={activeCountryCode === 'CN' ? cnPosition : usPosition}
+          position={activeCountryPosition}
         />
-        <GraphConnector from={selectedPosition} to={usPosition} active={activeCountryCode === 'US'} />
-        <GraphConnector from={selectedPosition} to={cnPosition} active={activeCountryCode === 'CN'} />
+        {sideCountryCodes.map((countryCode) => (
+          <GraphConnector
+            key={`country-connector-${countryCode}`}
+            from={selectedPosition}
+            to={sideCountryPositions[countryCode]}
+            active={activeCountryCode === countryCode}
+          />
+        ))}
         {visibleCountryVideos.map((node, index) => {
-          const countryPosition = revealedCountryCode === 'CN' ? cnPosition : usPosition
-          if (!videoPositionRefs.current[index]) {
-            videoPositionRefs.current[index] = new THREE.Vector3(...countryPosition)
-          }
+          const countryPosition = sideCountryPositions[revealedCountryCode] || activeCountryPosition
 
           return (
             <CameraFacingConnector
               key={`connector-${revealedCountryCode}-${node.videoId || node.id}`}
               from={countryPosition}
-              toRef={videoPositionRefs.current[index]}
+              toRef={videoPositionRefs[index]}
               active
             />
           )
@@ -1687,35 +1799,34 @@ function ComparisonGraph({ graphData, onNodeOpen }) {
           />
         </MovingGroup>
 
-        <MovingGroup position={activeCountryCode && activeCountryCode !== 'US' ? inactiveCountryPosition : usPosition} drift={1.2} isActive={Boolean(activeCountryCode)}>
-          <SpatialNode
-            label="UNITED STATES"
-            subLabel={activeCountryCode === 'US' ? 'RELATED FEED' : 'CLICK'}
-            tone="us"
-            flagCode="US"
-            size={activeCountryCode === 'US' ? 0.48 : 0.42}
-            selected={activeCountryCode === 'US'}
-            onClick={() => handleCountryClick('US')}
-          />
-        </MovingGroup>
+        {sideCountryCodes.map((countryCode, index) => {
+          const country = getCountryMeta(countryCode)
+          const isActiveCountry = activeCountryCode === countryCode
+          const isOtherCountryActive = activeCountryCode && !isActiveCountry
+          const inactivePosition = index === 0 ? [-1.9, -0.95, -1.18] : [1.9, -0.95, -1.18]
 
-        <MovingGroup position={activeCountryCode && activeCountryCode !== 'CN' ? inactiveCountryPosition : cnPosition} drift={2.4} isActive={Boolean(activeCountryCode)}>
-          <SpatialNode
-            label="CHINA"
-            subLabel={activeCountryCode === 'CN' ? 'RELATED FEED' : 'CLICK'}
-            tone="cn"
-            flagCode="CN"
-            size={activeCountryCode === 'CN' ? 0.48 : 0.42}
-            selected={activeCountryCode === 'CN'}
-            onClick={() => handleCountryClick('CN')}
-          />
-        </MovingGroup>
+          return (
+            <MovingGroup
+              key={`country-node-${countryCode}`}
+              position={isOtherCountryActive ? inactivePosition : sideCountryPositions[countryCode]}
+              drift={index === 0 ? 1.2 : 2.4}
+              isActive={Boolean(activeCountryCode)}
+            >
+              <SpatialNode
+                label={country.name.toUpperCase()}
+                subLabel={isActiveCountry ? 'RELATED FEED' : 'CLICK'}
+                tone={country.tone}
+                flagCode={countryCode}
+                size={isActiveCountry ? 0.48 : 0.42}
+                selected={isActiveCountry}
+                onClick={() => handleCountryClick(countryCode)}
+              />
+            </MovingGroup>
+          )
+        })}
 
         {visibleCountryVideos.map((node, index) => {
-          const countryPosition = revealedCountryCode === 'CN' ? cnPosition : usPosition
-          if (!videoPositionRefs.current[index]) {
-            videoPositionRefs.current[index] = new THREE.Vector3(...countryPosition)
-          }
+          const countryPosition = sideCountryPositions[revealedCountryCode] || activeCountryPosition
 
           return (
             <CameraFacingVideoGroup
@@ -1725,12 +1836,12 @@ function ComparisonGraph({ graphData, onNodeOpen }) {
               initialPosition={countryPosition}
               initialScale={0.18}
               drift={index * 0.72 + 3}
-              positionRef={videoPositionRefs.current[index]}
+              positionRef={videoPositionRefs[index]}
             >
               <RecommendationVideoCard
                 node={{ ...node, countryCode: revealedCountryCode }}
                 countryCode={revealedCountryCode}
-                onClick={onNodeOpen}
+                onClick={onCompareVideo}
               />
             </CameraFacingVideoGroup>
           )
@@ -1742,10 +1853,157 @@ function ComparisonGraph({ graphData, onNodeOpen }) {
   )
 }
 
+function getComparisonVideoKeywords(video, graphData, relationEdge) {
+  const candidates = [
+    video?.analysisKeywords,
+    video?.emotionKeywords,
+    video?.keywords,
+    relationEdge?.keywords,
+    graphData?.mainKeywords,
+    graphData?.sharedKeywords,
+  ]
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate) && candidate.length) {
+      return candidate
+        .map((keyword) => (typeof keyword === 'string' ? keyword : keyword?.keyword || keyword?.text || keyword?.name || ''))
+        .filter(Boolean)
+        .slice(0, 5)
+    }
+  }
+
+  return []
+}
+
+function findComparisonEdge(graphData, comparedVideo) {
+  const selectedVideo = graphData?.selectedVideo
+
+  if (!selectedVideo || !comparedVideo) {
+    return null
+  }
+
+  const selectedIds = new Set([selectedVideo.id, selectedVideo.videoId].filter(Boolean).map(String))
+  const comparedIds = new Set([comparedVideo.id, comparedVideo.videoId].filter(Boolean).map(String))
+
+  return graphData.edges.find((edge) => {
+    const source = String(edge.source || '')
+    const target = String(edge.target || '')
+
+    return (
+      (selectedIds.has(source) && comparedIds.has(target)) ||
+      (selectedIds.has(target) && comparedIds.has(source))
+    )
+  }) || null
+}
+
+function ComparisonVideoModalCard({ video, title, relationEdge, graphData }) {
+  const country = getCountryMeta(video?.countryCode)
+  const keywords = getComparisonVideoKeywords(video, graphData, relationEdge)
+
+  return (
+    <article className={`comparison-graph-page__compare-card comparison-graph-page__compare-card--${country.tone}`}>
+      <header className="comparison-graph-page__compare-card-head">
+        <span className={`country-compare-page__country-badge country-compare-page__country-badge--${country.tone}`}>
+          {country.localName}
+        </span>
+        <strong>{title}</strong>
+      </header>
+
+      <div className="comparison-graph-page__compare-thumb">
+        <YoutubeThumbnail
+          src={video?.thumbnailUrl}
+          youtubeVideoId={video?.videoId}
+          alt={video?.title || title}
+          placeholder={<div className="comparison-graph-page__recommendation-placeholder" />}
+        />
+      </div>
+
+      <div className="comparison-graph-page__compare-copy">
+        <strong>{video?.title || '영상 제목 정보 없음'}</strong>
+        <span>{video?.channelName || `${country.name} News`}</span>
+        <em>{formatViewCount(video?.viewCount)} · {formatPublishedDate(video?.publishedAt, '게시일 정보 없음')}</em>
+      </div>
+
+      <section className="comparison-graph-page__compare-keywords">
+        <h4>핵심 표현</h4>
+        {keywords.length ? (
+          <div>
+            {keywords.map((keyword, index) => (
+              <span key={`${video?.videoId || title}-${keyword}-${index}`}>{keyword}</span>
+            ))}
+          </div>
+        ) : (
+          <p>핵심 표현 정보가 없습니다.</p>
+        )}
+      </section>
+    </article>
+  )
+}
+
+function ComparisonVideoModal({ graphData, comparedVideo, onClose }) {
+  if (!graphData?.selectedVideo || !comparedVideo) {
+    return null
+  }
+
+  const relationEdge = findComparisonEdge(graphData, comparedVideo)
+  const differenceText =
+    relationEdge?.reasons?.[0] ||
+    relationEdge?.relationType ||
+    '두 영상이 같은 이슈를 서로 다른 국가 관점에서 다루고 있습니다.'
+
+  return createPortal(
+    <div className="comparison-graph-page__compare-modal" role="presentation" onClick={onClose}>
+      <section
+        className="comparison-graph-page__compare-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="comparison-video-modal-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="comparison-graph-page__compare-close"
+          aria-label="비교 영상 모달 닫기"
+          onClick={onClose}
+        >
+          ×
+        </button>
+
+        <header className="comparison-graph-page__compare-title">
+          <span>영상 비교</span>
+          <h2 id="comparison-video-modal-title">원본 영상과 비교 영상</h2>
+        </header>
+
+        <div className="comparison-graph-page__compare-grid">
+          <ComparisonVideoModalCard
+            video={graphData.selectedVideo}
+            title="원본 영상"
+            relationEdge={relationEdge}
+            graphData={graphData}
+          />
+          <ComparisonVideoModalCard
+            video={comparedVideo}
+            title="비교 영상"
+            relationEdge={relationEdge}
+            graphData={graphData}
+          />
+        </div>
+
+        <section className="comparison-graph-page__compare-difference">
+          <h3>핵심 차이</h3>
+          <p>{differenceText}</p>
+        </section>
+      </section>
+    </div>,
+    document.body,
+  )
+}
+
 export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, videoId }) {
   const [graphData, setGraphData] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const [comparisonModalVideo, setComparisonModalVideo] = useState(null)
 
   useEffect(() => {
     let isCancelled = false
@@ -1753,16 +2011,29 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
     const loadGraph = async () => {
       setIsLoading(true)
       setErrorMessage('')
+      setComparisonModalVideo(null)
+      const cachedSelectedVideo = readCachedSelectedComparisonVideo(videoId)
 
       try {
         const nextGraphData = await fetchComparisonGraph({ videoId, accessToken })
 
         if (!isCancelled) {
-          setGraphData(nextGraphData)
+          setGraphData(
+            cachedSelectedVideo
+              ? {
+                  ...nextGraphData,
+                  selectedVideo: {
+                    ...nextGraphData.selectedVideo,
+                    ...cachedSelectedVideo,
+                    nodeType: 'selected',
+                  },
+                }
+              : nextGraphData,
+          )
         }
       } catch {
         if (!isCancelled) {
-          setGraphData(createMockComparisonGraph(videoId))
+          setGraphData(createMockComparisonGraph(videoId, cachedSelectedVideo))
           setErrorMessage('비교 그래프 API가 아직 준비되지 않아 테스트용 mock 그래프를 표시합니다.')
         }
       } finally {
@@ -1788,6 +2059,14 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
     }
 
     goToHashRoute(getAnalysisRoute(nextVideoId))
+  }
+
+  const handleOpenComparisonModal = (node) => {
+    if (!node) {
+      return
+    }
+
+    setComparisonModalVideo(node)
   }
 
   return (
@@ -1839,10 +2118,17 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
               <ComparisonGraph
                 graphData={graphData}
                 onNodeOpen={handleOpenNode}
+                onCompareVideo={handleOpenComparisonModal}
               />
             </section>
           </>
         ) : null}
+
+        <ComparisonVideoModal
+          graphData={graphData}
+          comparedVideo={comparisonModalVideo}
+          onClose={() => setComparisonModalVideo(null)}
+        />
       </section>
     </main>
   )
