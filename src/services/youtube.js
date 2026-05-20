@@ -111,6 +111,7 @@ async function requestJson(path, { query, accessToken, fallbackErrorMessage }) {
     const response = await fetch(buildUrl(path, query), {
       method: 'GET',
       headers: createAuthHeaders(accessToken),
+      credentials: 'include',
     })
 
     const payload = await parseResponse(response)
