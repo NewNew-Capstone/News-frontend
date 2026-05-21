@@ -63,6 +63,10 @@ function readCachedSelectedComparisonVideo(videoId = '') {
 
 const fallbackKeywords = ['AI 반도체', '미중 갈등', '기후 정상회의', '전기차 관세', '중동 정세']
 
+function normalizeSearchKeyword(keyword = '') {
+  return String(keyword).replace(/^#+/, '').trim()
+}
+
 function SearchIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -326,17 +330,22 @@ function IssueKeywordChips({ keywords, activeKeyword, disabled, onSelect }) {
 
   return (
     <div className="country-compare-page__issue-chips" aria-label="오늘의 비교 이슈">
-      {displayKeywords.slice(0, 5).map((keyword) => (
-        <button
-          key={keyword}
-          className={activeKeyword === keyword ? 'country-compare-page__issue-chip country-compare-page__issue-chip--active' : 'country-compare-page__issue-chip'}
-          type="button"
-          disabled={disabled}
-          onClick={() => onSelect(keyword)}
-        >
-          #{keyword}
-        </button>
-      ))}
+      {displayKeywords.slice(0, 5).map((keyword) => {
+        const searchKeyword = normalizeSearchKeyword(keyword)
+
+        return (
+          <button
+            key={keyword}
+            className={activeKeyword === searchKeyword ? 'country-compare-page__issue-chip country-compare-page__issue-chip--active' : 'country-compare-page__issue-chip'}
+            type="button"
+            disabled={disabled || !searchKeyword}
+            aria-label={`${searchKeyword} 키워드로 검색`}
+            onClick={() => onSelect(searchKeyword)}
+          >
+            #{searchKeyword}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -620,7 +629,7 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
   }, [accessToken, isLoggedIn])
 
   const runSearch = async (keyword) => {
-    const trimmedKeyword = keyword.trim()
+    const trimmedKeyword = normalizeSearchKeyword(keyword)
 
     if (!trimmedKeyword) {
       return

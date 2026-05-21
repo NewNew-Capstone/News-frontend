@@ -357,7 +357,7 @@ export async function fetchComparisonHome({ limit = 5, accessToken } = {}) {
 
 export async function searchComparisonVideos({ keyword, limit = 5, accessToken } = {}) {
   const payload = await requestJsonCandidates(
-    ['/api/comparison/search', '/kg/search-videos'],
+    ['/api/v1/comparison/search'],
     {
       query: { keyword, limit },
       accessToken,
