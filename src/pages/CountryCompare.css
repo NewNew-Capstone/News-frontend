@@ -633,12 +633,9 @@
   overflow: hidden;
   border-radius: 0 0 30px 30px;
   background:
-    linear-gradient(rgba(49, 130, 246, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(49, 130, 246, 0.055) 1px, transparent 1px),
     radial-gradient(circle at 50% 34%, rgba(49, 130, 246, 0.18), transparent 31%),
     radial-gradient(circle at 20% 72%, rgba(255, 255, 255, 0.92), transparent 28%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(235, 243, 255, 0.92) 100%);
-  background-size: 42px 42px, 42px 42px, auto, auto, auto;
 }
 
 .comparison-graph-page__map--expanded .comparison-graph-page__canvas {
@@ -652,16 +649,9 @@
   z-index: 30;
   pointer-events: none;
   background:
-    repeating-linear-gradient(
-      180deg,
-      rgba(49, 130, 246, 0.025) 0,
-      rgba(49, 130, 246, 0.025) 1px,
-      transparent 1px,
-      transparent 5px
-    ),
     radial-gradient(circle, transparent 0%, rgba(49, 130, 246, 0.08) 100%);
   mix-blend-mode: multiply;
-  opacity: 0.42;
+  opacity: 0.34;
 }
 
 .comparison-graph-page__canvas {
@@ -721,12 +711,12 @@
   overflow: visible;
   display: grid;
   grid-template-rows: auto auto;
-  width: 90px;
+  width: 156px;
   height: auto;
   padding: 0;
   border: 1px solid rgba(214, 225, 242, 0.94);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.82);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
   color: var(--text-strong, #191f28);
   text-align: left;
   cursor: pointer;
@@ -755,6 +745,7 @@
   position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 9;
+  border-radius: 15px 15px 0 0;
   background: rgba(223, 231, 242, 0.72);
 }
 
@@ -764,7 +755,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.78;
+  opacity: 0.92;
 }
 
 .comparison-graph-page__recommendation-placeholder {
@@ -777,24 +768,28 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 2px;
-  padding: 3px 5px;
+  gap: 4px;
+  min-height: 96px;
+  padding: 9px 10px 10px;
   overflow: hidden;
 }
 
 .comparison-graph-page__recommendation-copy strong {
-  display: block;
+  display: -webkit-box;
   color: var(--text-strong, #191f28);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
-  line-height: 1.35;
+  line-height: 1.32;
   word-break: keep-all;
   overflow-wrap: break-word;
+  overflow: hidden;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
 }
 
 .comparison-graph-page__recommendation-copy span {
   color: var(--text-light, #8c9aaf);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -802,7 +797,14 @@
 }
 
 .comparison-graph-page__recommendation-copy em {
-  display: none;
+  display: block;
+  color: var(--text-light, #9aa8bb);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .comparison-graph-page__video-html-card {

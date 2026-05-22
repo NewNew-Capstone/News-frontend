@@ -103,12 +103,12 @@ export function getYoutubeThumbnailSources(src = '', youtubeVideoId = '', option
     candidates.push(initialSrc)
   }
 
-  if (!initialSrc && options.allowGenerated === true) {
-    const normalizedVideoId = normalizeYoutubeVideoId(youtubeVideoId)
+  const normalizedVideoId = normalizeYoutubeVideoId(youtubeVideoId || initialSrc)
 
-    if (normalizedVideoId) {
-      candidates.push(buildYoutubeThumbnailUrl(normalizedVideoId, 'hqdefault.jpg'))
-    }
+  if (normalizedVideoId && (options.allowGenerated === true || youtubeVideoId || isYoutubeThumbnailUrl(initialSrc))) {
+    candidates.push(buildYoutubeThumbnailUrl(normalizedVideoId, 'hqdefault.jpg'))
+    candidates.push(buildYoutubeThumbnailUrl(normalizedVideoId, 'mqdefault.jpg'))
+    candidates.push(buildYoutubeThumbnailUrl(normalizedVideoId, 'default.jpg'))
   }
 
   return candidates.filter((candidate, index, array) => candidate && array.indexOf(candidate) === index)

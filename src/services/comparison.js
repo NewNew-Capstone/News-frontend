@@ -160,15 +160,25 @@ function normalizeCountryCode(value) {
   const rawValue = String(value || '').trim()
   const normalizedValue = rawValue.toLowerCase()
 
-  if (['kr', 'kor', 'ko', 'korea', 'south korea'].includes(normalizedValue) || rawValue.includes('한국')) {
+  if (
+    ['kr', 'kor', 'ko', 'korea', 'south korea', 'republic of korea', '대한민국'].includes(normalizedValue) ||
+    rawValue.includes('한국') ||
+    rawValue.includes('대한민국')
+  ) {
     return 'KR'
   }
 
-  if (['us', 'usa', 'u.s.', 'united states', 'america', 'en'].includes(normalizedValue) || rawValue.includes('미국')) {
+  if (
+    ['us', 'usa', 'u.s.', 'u.s.a.', 'united states', 'united states of america', 'america', 'en'].includes(normalizedValue) ||
+    rawValue.includes('미국')
+  ) {
     return 'US'
   }
 
-  if (['cn', 'chn', 'zh', 'china', 'chinese'].includes(normalizedValue) || rawValue.includes('중국')) {
+  if (
+    ['cn', 'chn', 'zh', 'china', 'chinese', "people's republic of china", 'prc'].includes(normalizedValue) ||
+    rawValue.includes('중국')
+  ) {
     return 'CN'
   }
 
@@ -268,11 +278,52 @@ function normalizeSectionsFromObject(sectionsLike) {
   }))
 }
 
+function pickCountryVideosFromBody(body, countryCode) {
+  const country = COUNTRY_LOOKUP.get(countryCode)
+  const countryNames = [
+    countryCode,
+    countryCode.toLowerCase(),
+    country?.label,
+    country?.label?.toLowerCase(),
+    country?.localLabel,
+  ].filter(Boolean)
+  const countrySpecificKeys = {
+    KR: ['koreaVideos', 'korea_videos', 'krVideos', 'kr_videos', 'korVideos', 'kor_videos'],
+    US: ['usVideos', 'us_videos', 'usaVideos', 'usa_videos', 'unitedStatesVideos', 'united_states_videos'],
+    CN: ['chinaVideos', 'china_videos', 'cnVideos', 'cn_videos', 'chnVideos', 'chn_videos'],
+  }
+
+  const directVideos = pickFirst(body, countrySpecificKeys[countryCode] || [], null)
+
+  if (Array.isArray(directVideos)) {
+    return directVideos
+  }
+
+  const countries = toArray(body?.countries || body?.countryVideos || body?.country_videos || body?.recommendations)
+  const matchedCountry = countries.find((item) => {
+    const itemCountryCode = normalizeCountryCode(
+      pickFirst(item, ['country_code', 'countryCode', 'country', 'countryName', 'name', 'code'], ''),
+    )
+
+    return itemCountryCode === countryCode || countryNames.includes(String(item?.name || '').trim())
+  })
+
+  return toArray(matchedCountry?.videos || matchedCountry?.items || matchedCountry?.results || matchedCountry?.recommendations)
+}
+
 export function normalizeComparisonSections(body) {
+  const directCountrySections = COMPARISON_COUNTRIES
+    .map((country) => ({
+      country_code: country.code,
+      videos: pickCountryVideosFromBody(body, country.code),
+    }))
+    .filter((section) => section.videos.length)
   const rawSections =
-    toArray(body?.sections).length
-      ? body.sections
-      : normalizeSectionsFromObject(body?.sections || body?.country_sections || body?.countrySections)
+    directCountrySections.length
+      ? directCountrySections
+      : toArray(body?.sections).length
+        ? body.sections
+        : normalizeSectionsFromObject(body?.sections || body?.country_sections || body?.countrySections)
 
   const fallbackVideos = toArray(body?.videos)
   const groupedSections = new Map(
@@ -344,7 +395,7 @@ export function normalizeComparisonHome(payload) {
 
 export async function fetchComparisonHome({ limit = 5, accessToken } = {}) {
   const payload = await requestJsonCandidates(
-    ['/api/comparison/home', '/kg/comparison-home'],
+    ['/api/v1/comparison/home'],
     {
       query: { limit },
       accessToken,

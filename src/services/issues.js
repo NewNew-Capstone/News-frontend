@@ -152,10 +152,21 @@ function normalizeOpposingVideo(body = {}) {
     youtubeVideoId: body.youtubeVideoId || body.youtube_video_id || '',
     title: body.title || '',
     channelName: body.channelName || body.channel_name || '',
+    thumbnailUrl: body.thumbnailUrl || body.thumbnail_url || body.thumbnail || body.imageUrl || body.image_url || '',
     summaryText: body.summaryText || body.summary_text || '',
     opinionScore: normalizeIssueScore(body.opinionScore ?? body.opinion_score),
+    emotionScore: normalizeIssueScore(body.emotionScore ?? body.emotion_score),
+    factRatio: normalizeIssueScore(body.factRatio ?? body.fact_ratio),
+    headlineBodyGapScore: normalizeIssueScore(body.headlineBodyGapScore ?? body.headline_body_gap_score),
+    emotionExpressionCount: normalizeIssueScore(
+      body.emotionExpressionCount ?? body.emotion_expression_count ?? body.emotion_count,
+    ),
+    emotionSentenceCount: normalizeIssueScore(
+      body.emotionSentenceCount ?? body.emotion_sentence_count ?? body.emotion_detected_sentence_count,
+    ),
     overallBiasScore: normalizeIssueScore(body.overallBiasScore ?? body.overall_bias_score),
     opinionGap: normalizeIssueScore(body.opinionGap ?? body.opinion_gap),
+    scoreReasonSummary: body.scoreReasonSummary || body.score_reason_summary || '',
     scoreEvidence: body.scoreEvidence || body.score_evidence || '',
     analysisKeywords: Array.isArray(body.analysisKeywords ?? body.analysis_keywords)
       ? body.analysisKeywords ?? body.analysis_keywords

@@ -185,6 +185,11 @@
   gap: 14px;
 }
 
+.video-summary-detail-page__analysis-view--compare .video-summary-detail-page__analysis-report,
+.video-summary-detail-page__analysis-view--compare .video-summary-detail-page__analysis-opposing-pane {
+  width: 100%;
+}
+
 .video-summary-detail-page__analysis-opposing-pane {
   display: none;
   min-width: 0;
@@ -205,7 +210,8 @@
 }
 
 .video-summary-detail-page__analysis-view--compare .video-summary-detail-page__analysis-opposing-pane {
-  display: block;
+  display: flex;
+  flex-direction: column;
   opacity: 1;
   transform: translateX(0);
 }
@@ -278,6 +284,11 @@
 
 .video-summary-detail-page__analysis-report--opposing .video-summary-detail-page__analysis-top-grid {
   grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+}
+
+.video-summary-detail-page__analysis-report--opposing {
+  flex: 1;
+  align-content: start;
 }
 
 .video-summary-detail-page__analysis-top-grid {
@@ -694,6 +705,25 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.84);
 }
 
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-evidence-panel {
+  background: linear-gradient(180deg, rgba(255, 247, 250, 0.92), rgba(255, 255, 255, 0.94));
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-evidence-meta {
+  color: #e11d48;
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-evidence-meta > span {
+  background: rgba(255, 241, 246, 0.96);
+  border-color: rgba(248, 153, 178, 0.76);
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-evidence-panel .video-summary-detail-page__analysis-total-card {
+  box-shadow:
+    0 12px 28px rgba(244, 63, 94, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
 .video-summary-detail-page__hero--analysis .video-summary-detail-page__hero-link {
   border: 1px solid rgba(196, 216, 248, 0.94);
   border-radius: 18px;
@@ -718,7 +748,7 @@
 
 .video-summary-detail-page__analysis-report-hero,
 .video-summary-detail-page__analysis-report-hero .video-summary-detail-page__hero-link {
-  height: 100%;
+  height: auto;
 }
 
 .video-summary-detail-page__analysis-total-card {
@@ -737,6 +767,22 @@
     0 18px 46px rgba(49, 130, 246, 0.14),
     0 10px 28px rgba(31, 84, 152, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-total-card {
+  border-color: rgba(248, 153, 178, 0.95);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(244, 63, 94, 0.18) 0%, transparent 32%),
+    radial-gradient(circle at 58% 0%, rgba(251, 113, 133, 0.12) 0%, transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 246, 249, 0.98) 100%);
+  box-shadow:
+    0 18px 46px rgba(244, 63, 94, 0.13),
+    0 10px 28px rgba(159, 18, 57, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-total-card::before {
+  background: linear-gradient(180deg, #f43f5e 0%, #fb7185 100%);
 }
 
 .video-summary-detail-page__analysis-total-card::before {
@@ -768,6 +814,17 @@
 .video-summary-detail-page__analysis-score-guide {
   border-right: 1px solid rgba(166, 199, 250, 0.74);
   background: rgba(255, 255, 255, 0.42);
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-total-score {
+  border-right-color: rgba(248, 153, 178, 0.7);
+  background:
+    linear-gradient(180deg, rgba(255, 228, 235, 0.68), rgba(255, 255, 255, 0.18));
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-score-guide {
+  border-right-color: rgba(248, 153, 178, 0.7);
+  background: rgba(255, 247, 250, 0.56);
 }
 
 .video-summary-detail-page__analysis-total-score h3,
@@ -813,6 +870,12 @@
   white-space: nowrap;
 }
 
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-score-guide li strong {
+  background: rgba(255, 241, 246, 0.96);
+  border-color: rgba(248, 153, 178, 0.68);
+  color: #e11d48;
+}
+
 .video-summary-detail-page__analysis-total-score strong {
   position: relative;
   z-index: 2;
@@ -824,6 +887,12 @@
   text-shadow:
     0 2px 0 rgba(255, 255, 255, 0.7),
     0 10px 22px rgba(49, 130, 246, 0.24);
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-total-score strong {
+  text-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.76),
+    0 10px 22px rgba(244, 63, 94, 0.24);
 }
 
 .video-summary-detail-page__analysis-total-orb {
@@ -844,6 +913,16 @@
     0 18px 34px rgba(49, 130, 246, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.94);
   isolation: isolate;
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-total-orb {
+  background:
+    radial-gradient(circle at 34% 20%, rgba(255, 255, 255, 0.94), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(255, 241, 246, 0.96));
+  box-shadow:
+    0 0 0 9px rgba(255, 228, 235, 0.78),
+    0 18px 34px rgba(244, 63, 94, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.94);
 }
 
 .video-summary-detail-page__analysis-total-orb::before {
@@ -871,6 +950,12 @@
   box-shadow: 0 0 18px rgba(49, 130, 246, 0.18);
 }
 
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-total-orb::after {
+  background:
+    conic-gradient(#f43f5e 0 var(--analysis-total-score-percent), rgba(254, 205, 211, 0.88) var(--analysis-total-score-percent) 100%);
+  box-shadow: 0 0 18px rgba(244, 63, 94, 0.18);
+}
+
 .video-summary-detail-page__analysis-total-orb span {
   position: relative;
   z-index: 2;
@@ -878,6 +963,10 @@
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0;
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-total-orb span {
+  color: #e11d48;
 }
 
 .video-summary-detail-page__analysis-score-reason p {
@@ -968,6 +1057,20 @@
   font-weight: 950;
   line-height: 1.22;
   vertical-align: 0.02em;
+}
+
+.video-summary-detail-page__analysis-score-evidence--opposing {
+  color: #4a1727;
+}
+
+.video-summary-detail-page__analysis-score-evidence--opposing .video-summary-detail-page__analysis-score-evidence-highlight {
+  background:
+    linear-gradient(180deg, rgba(255, 241, 246, 0.98), rgba(255, 228, 235, 0.98));
+  color: #e11d48;
+  border-color: rgba(248, 153, 178, 0.82);
+  box-shadow:
+    0 4px 12px rgba(244, 63, 94, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
 .video-summary-detail-page__analysis-bar-list {
@@ -1200,9 +1303,9 @@
   width: 5px;
   height: 20px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #fff45a 0%, #e4d500 100%);
+  background: linear-gradient(180deg, #8fb8ff 0%, #3182f6 100%);
   transform: translateY(-50%);
-  box-shadow: 0 0 14px rgba(232, 203, 0, 0.32);
+  box-shadow: 0 0 14px rgba(49, 130, 246, 0.24);
 }
 
 .video-summary-detail-page__analysis-emotion-card .video-summary-detail-page__analysis-compact-header h3::after {
@@ -1213,7 +1316,7 @@
   bottom: 1px;
   height: 7px;
   border-radius: 999px;
-  background: rgba(255, 232, 0, 0.28);
+  background: rgba(214, 233, 255, 0.72);
   z-index: -1;
 }
 
@@ -1234,12 +1337,32 @@
 .video-summary-detail-page__analysis-keyword-chip--emotion {
   justify-content: center;
   min-height: 42px;
-  border-color: rgba(232, 203, 0, 0.58);
-  background: linear-gradient(180deg, #fff45a 0%, #f0df00 100%);
-  color: #232100;
+  border-color: rgba(145, 184, 248, 0.76);
+  background:
+    linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(226, 238, 255, 0.96) 100%);
+  color: #1d4f91;
   box-shadow:
-    0 10px 20px rgba(218, 194, 0, 0.13),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    0 8px 18px rgba(49, 130, 246, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-emotion-card .video-summary-detail-page__analysis-compact-header h3::before {
+  background: linear-gradient(180deg, #fb7185 0%, #f43f5e 100%);
+  box-shadow: 0 0 14px rgba(244, 63, 94, 0.2);
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-emotion-card .video-summary-detail-page__analysis-compact-header h3::after {
+  background: rgba(255, 228, 235, 0.72);
+}
+
+.video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-keyword-chip--emotion {
+  border-color: rgba(248, 153, 178, 0.72);
+  background:
+    linear-gradient(180deg, rgba(255, 252, 253, 0.99) 0%, rgba(255, 241, 246, 0.96) 100%);
+  color: #9f1239;
+  box-shadow:
+    0 8px 18px rgba(244, 63, 94, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
 }
 
 .video-summary-detail-page__analysis-empty {

@@ -8,11 +8,10 @@ import YoutubeThumbnail from '../components/YoutubeThumbnail'
 import mockComparisonThumbnail from '../assets/summary.jpg'
 import {
   COMPARISON_COUNTRIES,
+  fetchComparisonHome,
   fetchComparisonGraph,
-  normalizeComparisonVideo,
   searchComparisonVideos,
 } from '../services/comparison'
-import { fetchRecommendedChannelVideos } from '../services/youtube'
 import './CountryCompare.css'
 
 const countryDisplay = {
@@ -549,22 +548,8 @@ function normalizeSections(sections = []) {
   }))
 }
 
-function createRecommendedSectionsFromSummaryVideos(videos = []) {
-  const normalizedVideos = videos
-    .map((video, index) => normalizeComparisonVideo(video, index))
-    .filter((video) => video.videoId)
-    .slice(0, 5)
-
-  return COMPARISON_COUNTRIES.map((country) => ({
-    ...country,
-    countryCode: country.code,
-    videos: normalizedVideos.map((video) => ({
-      ...video,
-      countryCode: country.code,
-      countryName: country.label,
-      countryLocalLabel: country.localLabel,
-    })),
-  }))
+function hasSectionVideos(sections = []) {
+  return sections.some((section) => Array.isArray(section?.videos) && section.videos.length)
 }
 
 function orderSectionsBySelectedCountry(sections = [], selectedCountryCode = 'KR') {
@@ -600,19 +585,44 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
           return
         }
 
-        const recommendedVideos = await fetchRecommendedChannelVideos(accessToken)
+        let comparisonHome = null
+
+        try {
+          comparisonHome = await fetchComparisonHome({ limit: 5, accessToken })
+        } catch {
+          for (const keyword of fallbackKeywords) {
+            try {
+              const searchData = await searchComparisonVideos({ keyword, limit: 5, accessToken })
+              const normalizedSearchSections = normalizeSections(searchData.sections)
+
+              if (hasSectionVideos(normalizedSearchSections)) {
+                comparisonHome = {
+                  issueKeywords: fallbackKeywords,
+                  sections: normalizedSearchSections,
+                }
+                break
+              }
+            } catch {
+              // Try the next fallback keyword when the current pipeline request fails.
+            }
+          }
+        }
 
         if (isCancelled) {
           return
         }
 
-        setIssueKeywords(fallbackKeywords)
-        setSections(createRecommendedSectionsFromSummaryVideos(recommendedVideos))
+        if (!comparisonHome) {
+          throw new Error('국가별 추천 영상을 불러오지 못했습니다.')
+        }
+
+        setIssueKeywords(comparisonHome.issueKeywords.length ? comparisonHome.issueKeywords : fallbackKeywords)
+        setSections(normalizeSections(comparisonHome.sections))
       } catch {
         if (!isCancelled) {
           setIssueKeywords(fallbackKeywords)
           setSections(normalizeSections([]))
-          setErrorMessage('영상 요약의 방송사 추천 영상을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
+          setErrorMessage('국가별 추천 영상을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
         }
       } finally {
         if (!isCancelled) {
@@ -786,34 +796,26 @@ function SpatialPointCloud() {
 
 function GraphConnector({ from, to, active = false }) {
   const points = useMemo(() => new Float32Array([...from, ...to]), [from, to])
+  const materialRef = useRef(null)
+
+  useFrame(({ clock }) => {
+    if (!materialRef.current) {
+      return
+    }
+
+    const elapsed = clock.getElapsedTime()
+    materialRef.current.opacity = active
+      ? 0.56 + Math.sin(elapsed * 2.2) * 0.16
+      : 0.24 + Math.sin(elapsed * 1.4) * 0.08
+  })
 
   return (
     <line>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[points, 3]} />
       </bufferGeometry>
-      <lineBasicMaterial color={active ? '#ffffff' : '#6f7683'} transparent opacity={active ? 0.72 : 0.32} />
+      <lineBasicMaterial ref={materialRef} color={active ? '#ffffff' : '#6f7683'} transparent opacity={active ? 0.72 : 0.32} />
     </line>
-  )
-}
-
-function SpatialReferenceGrid() {
-  return (
-    <group position={[0, -1.42, -1.1]}>
-      <gridHelper args={[7.4, 18, '#9bc4ff', '#cfe1ff']} />
-      <line>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[new Float32Array([-3.6, 0.01, 0, 3.6, 0.01, 0]), 3]} />
-        </bufferGeometry>
-        <lineBasicMaterial color="#3182f6" transparent opacity={0.42} />
-      </line>
-      <line>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[new Float32Array([0, 0.01, -3.6, 0, 0.01, 3.6]), 3]} />
-        </bufferGeometry>
-        <lineBasicMaterial color="#6da9ff" transparent opacity={0.32} />
-      </line>
-    </group>
   )
 }
 
@@ -826,8 +828,8 @@ function ClusterFocusRings({ activeCountryCode, position }) {
     }
 
     const elapsed = clock.getElapsedTime()
-    groupRef.current.rotation.z = elapsed * 0.18
-    groupRef.current.scale.setScalar(1 + Math.sin(elapsed * 1.4) * 0.025)
+    groupRef.current.rotation.z = elapsed * 0.34
+    groupRef.current.scale.setScalar(1.04 + Math.sin(elapsed * 1.65) * 0.055)
   })
 
   if (!activeCountryCode) {
@@ -839,12 +841,12 @@ function ClusterFocusRings({ activeCountryCode, position }) {
   return (
     <group ref={groupRef} position={position} rotation={[Math.PI / 2, 0, 0]}>
       <mesh>
-        <torusGeometry args={[1.15, 0.012, 10, 120]} />
-        <meshBasicMaterial color={color} transparent opacity={0.36} />
+        <torusGeometry args={[1.15, 0.014, 10, 120]} />
+        <meshBasicMaterial color={color} transparent opacity={0.42} />
       </mesh>
       <mesh scale={[1.42, 1.42, 1.42]}>
-        <torusGeometry args={[1.15, 0.008, 10, 120]} />
-        <meshBasicMaterial color={color} transparent opacity={0.2} />
+        <torusGeometry args={[1.15, 0.01, 10, 120]} />
+        <meshBasicMaterial color={color} transparent opacity={0.24} />
       </mesh>
     </group>
   )
@@ -859,9 +861,9 @@ function ActiveLightMarker({ activeCountryCode, position }) {
     }
 
     const elapsed = clock.getElapsedTime()
-    markerRef.current.position.x = position[0] + Math.cos(elapsed * 1.1) * 0.28
-    markerRef.current.position.y = position[1] + 0.72 + Math.sin(elapsed * 1.1) * 0.12
-    markerRef.current.position.z = position[2] + Math.sin(elapsed * 0.9) * 0.28
+    markerRef.current.position.x = position[0] + Math.cos(elapsed * 1.45) * 0.44
+    markerRef.current.position.y = position[1] + 0.76 + Math.sin(elapsed * 1.18) * 0.18
+    markerRef.current.position.z = position[2] + Math.sin(elapsed * 1.28) * 0.4
   })
 
   if (!activeCountryCode) {
@@ -872,9 +874,9 @@ function ActiveLightMarker({ activeCountryCode, position }) {
 
   return (
     <group ref={markerRef} position={[position[0], position[1] + 0.72, position[2]]}>
-      <pointLight color={color} intensity={20} distance={5.2} />
+      <pointLight color={color} intensity={26} distance={5.8} />
       <mesh>
-        <sphereGeometry args={[0.055, 18, 18]} />
+        <sphereGeometry args={[0.066, 18, 18]} />
         <meshBasicMaterial color={color} />
       </mesh>
     </group>
@@ -887,24 +889,28 @@ function CameraRig({ activeCountryCode, activePosition = [0, -0.05, -0.65] }) {
   const lookAtRef = useRef(new THREE.Vector3(0, -0.05, -0.65))
   const upRef = useRef(new THREE.Vector3(0, 1, 0))
 
-  useFrame(() => {
+  useFrame(({ clock }, delta) => {
+    const elapsed = clock.getElapsedTime()
+    const cameraEase = 1 - Math.exp(-3.4 * delta)
+    const focusEase = 1 - Math.exp(-4.2 * delta)
     const focus = activeCountryCode
       ? new THREE.Vector3(activePosition[0], activePosition[1] - 0.08, activePosition[2] - 0.3)
-      : new THREE.Vector3(0, -0.05, -0.65)
-    const yaw = activeCountryCode ? (activePosition[0] < 0 ? -0.72 : 0.72) : 0
-    const pitch = activeCountryCode ? 0.24 : 0.04
-    const distance = activeCountryCode ? 5.95 : 6.42
+      : new THREE.Vector3(Math.sin(elapsed * 0.22) * 0.08, -0.05 + Math.sin(elapsed * 0.28) * 0.035, -0.65)
+    const idleYaw = Math.sin(elapsed * 0.18) * 0.12
+    const yaw = activeCountryCode ? (activePosition[0] < 0 ? -0.78 : 0.78) : idleYaw
+    const pitch = activeCountryCode ? 0.27 + Math.sin(elapsed * 0.45) * 0.025 : 0.05
+    const distance = activeCountryCode ? 5.78 : 6.42
     const roll = activeCountryCode ? (activePosition[0] < 0 ? 0.16 : -0.16) : 0
     const targetEye = new THREE.Vector3(
       focus.x + Math.sin(yaw) * Math.cos(pitch) * distance,
-      focus.y + Math.sin(pitch) * distance + 0.12,
+      focus.y + Math.sin(pitch) * distance + 0.12 + Math.sin(elapsed * 0.36) * 0.06,
       focus.z + Math.cos(yaw) * Math.cos(pitch) * distance,
     )
     const targetUp = new THREE.Vector3(Math.sin(roll), Math.cos(roll), 0).normalize()
 
-    eyeRef.current.lerp(targetEye, 0.028)
-    lookAtRef.current.lerp(focus, 0.036)
-    upRef.current.lerp(targetUp, 0.04).normalize()
+    eyeRef.current.lerp(targetEye, cameraEase)
+    lookAtRef.current.lerp(focus, focusEase)
+    upRef.current.lerp(targetUp, 1 - Math.exp(-3.8 * delta)).normalize()
     camera.position.copy(eyeRef.current)
     camera.up.copy(upRef.current)
     camera.lookAt(lookAtRef.current)
@@ -924,24 +930,30 @@ function MovingGroup({
   const groupRef = useRef(null)
   const startPosition = initialPosition || position
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     if (!groupRef.current) {
       return
     }
 
     const elapsed = clock.getElapsedTime()
+    const ease = 1 - Math.exp(-5.8 * delta)
+    const floatAmount = isActive ? 0.078 : 0.032
     groupRef.current.position.lerp(
       {
         x: position[0],
-        y: position[1] + Math.sin(elapsed * 0.68 + drift) * (isActive ? 0.045 : 0.015),
-        z: position[2],
+        y: position[1] + Math.sin(elapsed * 0.74 + drift) * floatAmount,
+        z: position[2] + Math.cos(elapsed * 0.5 + drift) * (isActive ? 0.035 : 0.012),
       },
-      0.06,
+      ease,
     )
-    groupRef.current.scale.x += (1 - groupRef.current.scale.x) * 0.075
-    groupRef.current.scale.y += (1 - groupRef.current.scale.y) * 0.075
-    groupRef.current.scale.z += (1 - groupRef.current.scale.z) * 0.075
-    groupRef.current.rotation.set(0, 0, 0)
+    groupRef.current.scale.x += (1 - groupRef.current.scale.x) * ease
+    groupRef.current.scale.y += (1 - groupRef.current.scale.y) * ease
+    groupRef.current.scale.z += (1 - groupRef.current.scale.z) * ease
+    groupRef.current.rotation.set(
+      Math.sin(elapsed * 0.42 + drift) * 0.018,
+      Math.cos(elapsed * 0.36 + drift) * 0.022,
+      Math.sin(elapsed * 0.5 + drift) * 0.012,
+    )
   })
 
   return (
@@ -954,8 +966,9 @@ function MovingGroup({
 function CameraFacingConnector({ from, toRef, active = false }) {
   const points = useMemo(() => new Float32Array([...from, ...from]), [from])
   const geometryRef = useRef(null)
+  const materialRef = useRef(null)
 
-  useFrame(() => {
+  useFrame(({ clock }) => {
     const target = toRef?.current || toRef
     const geometry = geometryRef.current
 
@@ -971,6 +984,10 @@ function CameraFacingConnector({ from, toRef, active = false }) {
     positions[4] = target.y
     positions[5] = target.z
     geometry.attributes.position.needsUpdate = true
+
+    if (materialRef.current) {
+      materialRef.current.opacity = active ? 0.5 + Math.sin(clock.getElapsedTime() * 2.4) * 0.12 : 0.22
+    }
   })
 
   return (
@@ -978,7 +995,7 @@ function CameraFacingConnector({ from, toRef, active = false }) {
       <bufferGeometry ref={geometryRef}>
         <bufferAttribute attach="attributes-position" args={[points, 3]} />
       </bufferGeometry>
-      <lineBasicMaterial color="#ffffff" transparent opacity={active ? 0.58 : 0.22} />
+      <lineBasicMaterial ref={materialRef} color="#ffffff" transparent opacity={active ? 0.58 : 0.22} />
     </line>
   )
 }
@@ -1000,26 +1017,32 @@ function CameraFacingVideoGroup({
   const upRef = useRef(new THREE.Vector3())
   const targetRef = useRef(new THREE.Vector3(...(initialPosition || focus)))
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     if (!groupRef.current) {
       return
     }
 
     const elapsed = clock.getElapsedTime()
+    const ease = 1 - Math.exp(-6.4 * delta)
     camera.getWorldDirection(forwardRef.current).normalize()
     upRef.current.copy(camera.up).normalize()
     rightRef.current.crossVectors(forwardRef.current, upRef.current).normalize()
     targetRef.current
       .set(focus[0], focus[1], focus[2])
       .addScaledVector(rightRef.current, anchor[0])
-      .addScaledVector(upRef.current, anchor[1] + Math.sin(elapsed * 0.68 + drift) * 0.035)
+      .addScaledVector(upRef.current, anchor[1] + Math.sin(elapsed * 0.86 + drift) * 0.07)
       .addScaledVector(forwardRef.current, -frontOffset)
 
-    groupRef.current.position.lerp(targetRef.current, 0.075)
-    groupRef.current.scale.x += (1 - groupRef.current.scale.x) * 0.075
-    groupRef.current.scale.y += (1 - groupRef.current.scale.y) * 0.075
-    groupRef.current.scale.z += (1 - groupRef.current.scale.z) * 0.075
-    groupRef.current.rotation.set(0, 0, 0)
+    groupRef.current.position.lerp(targetRef.current, ease)
+    const breatheScale = 1 + Math.sin(elapsed * 1.05 + drift) * 0.018
+    groupRef.current.scale.x += (breatheScale - groupRef.current.scale.x) * ease
+    groupRef.current.scale.y += (breatheScale - groupRef.current.scale.y) * ease
+    groupRef.current.scale.z += (breatheScale - groupRef.current.scale.z) * ease
+    groupRef.current.rotation.set(
+      Math.sin(elapsed * 0.36 + drift) * 0.012,
+      Math.cos(elapsed * 0.44 + drift) * 0.014,
+      0,
+    )
 
     const targetPosition = positionRef?.current || positionRef
     if (targetPosition) {
@@ -1600,13 +1623,17 @@ function SpatialNode({
           : '#8fb8ff'
   const emissive = tone === 'cn' ? '#5a120e' : tone === 'us' ? '#0b2b6c' : '#1b6ee8'
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     if (!meshRef.current) {
       return
     }
 
     const elapsed = clock.getElapsedTime()
-    meshRef.current.scale.setScalar(size + Math.sin(elapsed * 1.3) * (selected ? 0.018 : 0.01))
+    const pulse = Math.sin(elapsed * (selected ? 1.45 : 1.15)) * (selected ? 0.032 : 0.018)
+    const shimmer = Math.sin(elapsed * 2.3 + size) * (selected ? 0.01 : 0.006)
+    meshRef.current.scale.setScalar(size + pulse + shimmer)
+    meshRef.current.rotation.y += delta * (selected ? 0.22 : 0.16)
+    meshRef.current.rotation.x = Math.sin(elapsed * 0.46 + size) * 0.028
     if (labelRef.current) {
       meshRef.current.getWorldPosition(sphereCenterRef.current)
       cameraDirectionRef.current.subVectors(camera.position, sphereCenterRef.current).normalize()
@@ -1708,10 +1735,10 @@ function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
   const activeCountryPosition = sideCountryPositions[activeCountryCode] || selectedPosition
   const videoAnchorSide = revealedCountryCode === rightCountryCode ? 1 : -1
   const videoAnchors = [
-    [videoAnchorSide * 0.85, 0.7],
-    [videoAnchorSide * 1.85, 0.7],
-    [videoAnchorSide * 0.85, -0.7],
-    [videoAnchorSide * 1.85, -0.7],
+    [videoAnchorSide * 1.05, 0.92],
+    [videoAnchorSide * 2.28, 0.92],
+    [videoAnchorSide * 1.05, -0.92],
+    [videoAnchorSide * 2.28, -0.92],
   ]
   const videoPositionRefs = useMemo(
     () => visibleCountryVideos.map(() => new THREE.Vector3(...activeCountryPosition)),
@@ -1767,7 +1794,6 @@ function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
         <pointLight color="#8fb8ff" intensity={8} position={[-3.8, 0.6, 2.8]} />
         <pointLight color="#ffffff" intensity={4} position={[3.2, -1.8, 3.2]} />
         <CameraRig activeCountryCode={activeCountryCode} activePosition={activeCountryPosition} />
-        <SpatialReferenceGrid />
         <SpatialPointCloud />
         <ClusterFocusRings
           activeCountryCode={activeCountryCode}

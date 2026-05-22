@@ -171,6 +171,34 @@ function formatScorePoints(value) {
   return `${Math.round(percent)}점`
 }
 
+function buildPipelineEvidenceText(result, fallbackText = '') {
+  if (!result) {
+    return fallbackText
+  }
+
+  const opinionPercent = clampPercentage(result.opinionScore)
+  const emotionExpressionCount = Number(result.emotionExpressionCount)
+  const emotionSentenceCount = Number(result.emotionSentenceCount)
+  const factRatio = clampPercentage(result.factRatio)
+  const gapScore = result.headlineBodyGapScore
+  const canUsePipelineFormat =
+    opinionPercent !== null &&
+    Number.isFinite(emotionExpressionCount) &&
+    Number.isFinite(emotionSentenceCount) &&
+    factRatio !== null
+
+  if (!canUsePipelineFormat) {
+    return fallbackText
+  }
+
+  const gapSentence =
+    gapScore !== null && gapScore !== undefined
+      ? ` 제목과 본문 사이에 다소 차이가 있습니다. (갭 점수: ${Number(gapScore).toFixed(2)})`
+      : ''
+
+  return `전체 문장 중 ${Math.round(opinionPercent)}% 가 주관적 문장입니다. 감정적 표현 ${Math.round(emotionExpressionCount)}건이 ${Math.round(emotionSentenceCount)}개 문장에서 감지되었습니다. 사실 기반 문장 비율이 낮습니다.${gapSentence}`
+}
+
 function renderHighlightedEvidenceText(text) {
   if (!text) {
     return null
@@ -597,6 +625,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const [hasCheckedExistingAnalysis, setHasCheckedExistingAnalysis] = useState(false)
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false)
   const [isAnalysisEvidenceOpen, setIsAnalysisEvidenceOpen] = useState(false)
+  const [isOpposingAnalysisEvidenceOpen, setIsOpposingAnalysisEvidenceOpen] = useState(false)
   const [isOpposingAnalysisVisible, setIsOpposingAnalysisVisible] = useState(false)
   const [opposingAnalysisResult, setOpposingAnalysisResult] = useState(null)
   const [isOpposingAnalysisLoading, setIsOpposingAnalysisLoading] = useState(false)
@@ -663,6 +692,15 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     analysisResult?.opposingAnalysisSummary ||
     '현재 영상과 다른 관점에서 같은 이슈를 다루는 영상의 분석 결과를 이곳에서 비교합니다. 주관성 점수와 감정 표현, 핵심 주장 차이를 함께 확인할 수 있습니다.'
   const opposingAnalysisKeywords = (opposingAnalysisResult?.analysisKeywords || []).slice(0, 8)
+  const opposingScoreReasonText =
+    opposingAnalysisResult?.scoreReasonSummary ||
+    opposingAnalysisResult?.scoreEvidence ||
+    '반대 영상의 점수 근거가 제공되지 않았습니다.'
+  const opposingScoreEvidenceText =
+    buildPipelineEvidenceText(
+      opposingAnalysisResult,
+      opposingAnalysisResult?.scoreEvidence || opposingScoreReasonText,
+    )
   const opposingMetricBars = [
     {
       key: 'opinion',
@@ -1108,6 +1146,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     }
 
     setIsOpposingAnalysisVisible(true)
+    setIsOpposingAnalysisEvidenceOpen(false)
 
     const targetVideoId =
       analysisTargetId ??
@@ -1506,6 +1545,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                             aria-label={`${opposingAnalysisTitle} 원본 영상 열기`}
                           >
                             <YoutubeThumbnail
+                              src={opposingAnalysisResult.thumbnailUrl}
                               youtubeVideoId={opposingAnalysisResult.youtubeVideoId}
                               alt={opposingAnalysisTitle}
                               placeholder={<div className="video-summary-detail-page__opposing-video-placeholder" />}
@@ -1523,9 +1563,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                         <article className="video-summary-detail-page__analysis-compact-card video-summary-detail-page__analysis-summary-card video-summary-detail-page__analysis-summary-card--opposing-pane">
                           <div className="video-summary-detail-page__analysis-compact-header">
                             <h3>영상 요약</h3>
-                            <span className="video-summary-detail-page__analysis-pill video-summary-detail-page__analysis-pill--opposing">
-                              {opposingAnalysisToneLabel}
-                            </span>
                           </div>
                           <strong className="video-summary-detail-page__opposing-analysis-title">
                             {opposingAnalysisTitle}
@@ -1541,20 +1578,24 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                         </article>
                       </div>
 
-                      <section className="video-summary-detail-page__analysis-evidence-disclosure video-summary-detail-page__analysis-evidence-disclosure--opposing video-summary-detail-page__analysis-evidence-disclosure--open">
+                      <section
+                        className={`video-summary-detail-page__analysis-evidence-disclosure video-summary-detail-page__analysis-evidence-disclosure--opposing ${
+                          isOpposingAnalysisEvidenceOpen
+                            ? 'video-summary-detail-page__analysis-evidence-disclosure--open'
+                            : ''
+                        }`}
+                      >
                         <button
                           type="button"
                           className="video-summary-detail-page__analysis-evidence-toggle"
-                          aria-expanded="true"
-                          disabled
+                          aria-expanded={isOpposingAnalysisEvidenceOpen}
+                          aria-controls="opposing-analysis-evidence-panel"
+                          onClick={() => setIsOpposingAnalysisEvidenceOpen((currentState) => !currentState)}
                         >
                           <span className="video-summary-detail-page__analysis-evidence-copy">
                             <span>DETAIL EVIDENCE</span>
-                            <strong>반대 영상 분석 근거 자세히 보기</strong>
-                            <small>
-                              {opposingAnalysisResult.scoreEvidence ||
-                                '반대 영상의 점수 근거와 지표, 핵심 표현을 확인합니다.'}
-                            </small>
+                            <strong>다른 관점 영상 분석 근거 자세히 보기</strong>
+                            <small>{opposingScoreReasonText}</small>
                           </span>
                           <span className="video-summary-detail-page__analysis-evidence-meta">
                             <span>{formatScorePoints(opposingAnalysisResult.overallBiasScore)}</span>
@@ -1562,7 +1603,11 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                           </span>
                         </button>
 
-                        <div className="video-summary-detail-page__analysis-evidence-panel">
+                        <div
+                          id="opposing-analysis-evidence-panel"
+                          className="video-summary-detail-page__analysis-evidence-panel"
+                          hidden={!isOpposingAnalysisEvidenceOpen}
+                        >
                           <article className="video-summary-detail-page__analysis-total-card">
                             <section className="video-summary-detail-page__analysis-total-score">
                               <h3>총 점수</h3>
@@ -1590,10 +1635,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
                             <section className="video-summary-detail-page__analysis-score-reason">
                               <h3>점수 근거</h3>
-                              <p>
-                                {opposingAnalysisResult.scoreEvidence ||
-                                  '반대 영상의 점수 근거가 제공되지 않았습니다.'}
-                              </p>
+                              <p>{opposingScoreReasonText}</p>
                             </section>
                           </article>
 
@@ -1637,6 +1679,10 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                           </div>
                         </article>
                       ) : null}
+
+                          <p className="video-summary-detail-page__analysis-score-evidence video-summary-detail-page__analysis-score-evidence--opposing">
+                            {renderHighlightedEvidenceText(opposingScoreEvidenceText)}
+                          </p>
                         </div>
                       </section>
                       </>
