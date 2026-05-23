@@ -164,14 +164,56 @@ async function requestJson(path, { method = 'GET', accessToken = getAccessToken(
 }
 
 function normalizeKeyword(keyword) {
+  if (typeof keyword === 'string') {
+    return {
+      keywordText: keyword,
+      keywordType: '',
+      score: null,
+    }
+  }
+
   if (!keyword || typeof keyword !== 'object') {
     return null
   }
 
   return {
-    keywordText: keyword.keyword_text || keyword.keywordText || keyword.text || '',
+    keywordText:
+      keyword.keyword_text ||
+      keyword.keywordText ||
+      keyword.keyword ||
+      keyword.text ||
+      keyword.name ||
+      '',
     keywordType: keyword.keyword_type || keyword.keywordType || '',
     score: Number(keyword.score),
+  }
+}
+
+function normalizeFocusKeyword(keyword) {
+  if (typeof keyword === 'string') {
+    return {
+      keywordText: keyword,
+      score: null,
+      occurrenceCount: null,
+      sentenceCount: null,
+    }
+  }
+
+  if (!keyword || typeof keyword !== 'object') {
+    return null
+  }
+
+  return {
+    keywordText:
+      keyword.keyword_text ||
+      keyword.keywordText ||
+      keyword.keyword ||
+      keyword.text ||
+      keyword.name ||
+      '',
+    score: Number(keyword.score),
+    occurrenceCount: Number(keyword.occurrence_count ?? keyword.occurrenceCount),
+    sentenceCount: Number(keyword.sentence_count ?? keyword.sentenceCount),
   }
 }
 
@@ -272,6 +314,12 @@ function normalizeAnalysisResult(source) {
     toneLabel: responseBody.tone_label || '',
     keywords: (Array.isArray(responseBody.keywords) ? responseBody.keywords : [])
       .map((keyword) => normalizeKeyword(keyword))
+      .filter(Boolean),
+    focusKeywords: (Array.isArray(responseBody.focus_keywords ?? responseBody.focusKeywords)
+      ? responseBody.focus_keywords ?? responseBody.focusKeywords
+      : []
+    )
+      .map((keyword) => normalizeFocusKeyword(keyword))
       .filter(Boolean),
     emotionKeywords: (Array.isArray(responseBody.emotion_keywords ?? responseBody.emotionKeywords)
       ? responseBody.emotion_keywords ?? responseBody.emotionKeywords

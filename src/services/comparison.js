@@ -189,6 +189,54 @@ function toArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : []
 }
 
+function normalizeFocusKeyword(keyword) {
+  if (typeof keyword === 'string') {
+    return {
+      keywordText: keyword,
+      score: null,
+      occurrenceCount: null,
+      sentenceCount: null,
+    }
+  }
+
+  if (!keyword || typeof keyword !== 'object') {
+    return null
+  }
+
+  return {
+    keywordText:
+      keyword.keyword_text ||
+      keyword.keywordText ||
+      keyword.keyword ||
+      keyword.text ||
+      keyword.name ||
+      '',
+    score: Number(keyword.score),
+    occurrenceCount: Number(keyword.occurrence_count ?? keyword.occurrenceCount),
+    sentenceCount: Number(keyword.sentence_count ?? keyword.sentenceCount),
+  }
+}
+
+function normalizeDisplayKeyword(keyword) {
+  if (typeof keyword === 'string') {
+    return {
+      keywordText: keyword,
+      keywordType: '',
+      score: null,
+    }
+  }
+
+  if (!keyword || typeof keyword !== 'object') {
+    return null
+  }
+
+  return {
+    keywordText: keyword.keyword_text || keyword.keywordText || keyword.keyword || keyword.text || keyword.name || '',
+    keywordType: keyword.keyword_type || keyword.keywordType || '',
+    score: Number(keyword.score),
+  }
+}
+
 function formatDate(value) {
   if (!value) {
     return ''
@@ -243,6 +291,12 @@ export function normalizeComparisonVideo(video, index = 0) {
     language: pickFirst(video, ['language', 'languageLabel', 'lang'], ''),
     analysisStatus: pickFirst(video, ['analysis_status', 'analysisStatus', 'status'], ''),
     nodeType: pickFirst(video, ['node_type', 'nodeType'], ''),
+    focusKeywords: toArray(video.focus_keywords ?? video.focusKeywords)
+      .map((keyword) => normalizeFocusKeyword(keyword))
+      .filter(Boolean),
+    emotionKeywords: toArray(video.emotion_keywords ?? video.emotionKeywords)
+      .map((keyword) => normalizeDisplayKeyword(keyword))
+      .filter(Boolean),
   }
 }
 

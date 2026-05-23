@@ -23,6 +23,7 @@ const ANALYSIS_POLL_INTERVAL_MS = 2_500
 const MAX_RECOMMENDATIONS = 8
 const MAX_COMMENTS = 5
 const MAX_KEYWORDS = 10
+const MAX_EXPRESSION_KEYWORDS = 6
 const MAX_SENTENCE_LABELS = 8
 
 function ShareIcon() {
@@ -158,7 +159,27 @@ function formatMetricPercent(value) {
     return '--%'
   }
 
+  if (percent > 0 && percent < 1) {
+    return '<1%'
+  }
+
   return `${Math.round(percent)}%`
+}
+
+function formatFocusKeywordMeta(keyword) {
+  const occurrenceCount = Number(keyword?.occurrenceCount)
+  const sentenceCount = Number(keyword?.sentenceCount)
+  const metaItems = []
+
+  if (Number.isFinite(sentenceCount) && sentenceCount > 0) {
+    metaItems.push(`${Math.round(sentenceCount)}개 문장`)
+  }
+
+  if (Number.isFinite(occurrenceCount) && occurrenceCount > 0) {
+    metaItems.push(`${Math.round(occurrenceCount)}회 등장`)
+  }
+
+  return metaItems.join(' / ')
 }
 
 function formatScorePoints(value) {
@@ -736,25 +757,12 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       toneClassName: 'video-summary-detail-page__analysis-metric-fill--emotion',
     },
   ]
-  const analysisKeywordItems = keywordItems.slice(0, 8)
-  const fallbackEmotionKeywordItems = keywordItems
-    .filter((keyword) => {
-      const keywordType = String(keyword.keywordType || '').toLowerCase()
-
-      return (
-        keywordType.includes('emotion') ||
-        keywordType.includes('sentiment') ||
-        keywordType.includes('loaded')
-      )
-    })
-    .slice(0, 6)
-  const visibleEmotionKeywordItems = (
-    analysisResult?.emotionKeywords?.length
-      ? analysisResult.emotionKeywords
-      : fallbackEmotionKeywordItems.length
-        ? fallbackEmotionKeywordItems
-        : analysisKeywordItems
-  ).slice(0, 6)
+  const visibleFocusKeywordItems = (analysisResult?.focusKeywords || [])
+    .filter((keyword) => keyword?.keywordText)
+    .slice(0, MAX_EXPRESSION_KEYWORDS)
+  const visibleEmotionKeywordItems = (analysisResult?.emotionKeywords || [])
+    .filter((keyword) => keyword?.keywordText)
+    .slice(0, MAX_EXPRESSION_KEYWORDS)
   const subjectivityScorePercent = clampPercentage(subjectivityScoreCard?.value)
 
   const renderScoreCard = (scoreCard) => {
@@ -1478,22 +1486,58 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                           <h3>핵심 표현</h3>
                         </div>
 
-                        {visibleEmotionKeywordItems.length ? (
-                          <div className="video-summary-detail-page__analysis-keyword-cloud video-summary-detail-page__analysis-keyword-cloud--emotion">
-                            {visibleEmotionKeywordItems.map((keyword) => (
-                              <span
-                                key={`${keyword.keywordType}-${keyword.keywordText}`}
-                                className="video-summary-detail-page__analysis-keyword-chip video-summary-detail-page__analysis-keyword-chip--emotion"
-                              >
-                                {keyword.keywordText}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="video-summary-detail-page__analysis-empty">
-                            아직 표시할 감정 키워드가 없습니다.
-                          </p>
-                        )}
+                        <div className="video-summary-detail-page__analysis-expression-groups">
+                          <section className="video-summary-detail-page__analysis-expression-group">
+                            <div className="video-summary-detail-page__analysis-expression-head">
+                              <h4>중점 키워드</h4>
+                              <span>{visibleFocusKeywordItems.length}개</span>
+                            </div>
+                            {visibleFocusKeywordItems.length ? (
+                              <div className="video-summary-detail-page__analysis-keyword-cloud video-summary-detail-page__analysis-keyword-cloud--emotion">
+                                {visibleFocusKeywordItems.map((keyword) => {
+                                  const keywordMeta = formatFocusKeywordMeta(keyword)
+
+                                  return (
+                                    <span
+                                      key={`focus-${keyword.keywordText}`}
+                                      className="video-summary-detail-page__analysis-keyword-chip video-summary-detail-page__analysis-keyword-chip--focus"
+                                    >
+                                      <strong>{keyword.keywordText}</strong>
+                                      {keywordMeta ? <em>{keywordMeta}</em> : null}
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <p className="video-summary-detail-page__analysis-empty">
+                                중점 키워드가 없습니다.
+                              </p>
+                            )}
+                          </section>
+
+                          <section className="video-summary-detail-page__analysis-expression-group">
+                            <div className="video-summary-detail-page__analysis-expression-head">
+                              <h4>감정 표현</h4>
+                              <span>{visibleEmotionKeywordItems.length}개</span>
+                            </div>
+                            {visibleEmotionKeywordItems.length ? (
+                              <div className="video-summary-detail-page__analysis-keyword-cloud video-summary-detail-page__analysis-keyword-cloud--emotion">
+                                {visibleEmotionKeywordItems.map((keyword) => (
+                                  <span
+                                    key={`${keyword.keywordType}-${keyword.keywordText}`}
+                                    className="video-summary-detail-page__analysis-keyword-chip video-summary-detail-page__analysis-keyword-chip--emotion"
+                                  >
+                                    {keyword.keywordText}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="video-summary-detail-page__analysis-empty">
+                                감정 표현 키워드가 없습니다.
+                              </p>
+                            )}
+                          </section>
+                        </div>
                       </article>
 
                     <p className="video-summary-detail-page__analysis-score-evidence">

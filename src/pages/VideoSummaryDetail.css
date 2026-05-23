@@ -1276,6 +1276,38 @@
   gap: 14px;
 }
 
+.video-summary-detail-page__analysis-expression-groups {
+  display: grid;
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.video-summary-detail-page__analysis-expression-group {
+  display: grid;
+  gap: 10px;
+}
+
+.video-summary-detail-page__analysis-expression-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.video-summary-detail-page__analysis-expression-head h4 {
+  margin: 0;
+  color: var(--text-strong, #191f28);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.video-summary-detail-page__analysis-expression-head span {
+  color: var(--text-medium, #6b7785);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
 .video-summary-detail-page__analysis-emotion-card .video-summary-detail-page__analysis-compact-header {
   justify-content: flex-start;
 }
@@ -1344,6 +1376,36 @@
   box-shadow:
     0 8px 18px rgba(49, 130, 246, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.video-summary-detail-page__analysis-keyword-chip--focus {
+  justify-content: center;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 52px;
+  border-color: rgba(28, 185, 126, 0.42);
+  background:
+    linear-gradient(180deg, rgba(249, 255, 252, 0.98) 0%, rgba(229, 249, 240, 0.96) 100%);
+  color: #0f6b49;
+  box-shadow:
+    0 8px 18px rgba(20, 184, 126, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  text-align: center;
+}
+
+.video-summary-detail-page__analysis-keyword-chip--focus strong {
+  color: inherit;
+  font-size: 0.85rem;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.video-summary-detail-page__analysis-keyword-chip--focus em {
+  color: rgba(15, 107, 73, 0.72);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1.15;
 }
 
 .video-summary-detail-page__analysis-evidence-disclosure--opposing .video-summary-detail-page__analysis-emotion-card .video-summary-detail-page__analysis-compact-header h3::before {

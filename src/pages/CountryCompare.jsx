@@ -22,6 +22,7 @@ const countryDisplay = {
 
 const COMPARISON_COUNTRY_CODES = ['KR', 'US', 'CN']
 const COMPARISON_SELECTED_VIDEO_KEY = 'comparison-selected-video'
+const MAX_COMPARISON_EXPRESSION_KEYWORDS = 6
 
 function getSelectedCenteredCountryCodes(selectedCountryCode = 'KR') {
   const centerCountryCode = COMPARISON_COUNTRY_CODES.includes(selectedCountryCode)
@@ -96,6 +97,30 @@ function formatPublishedDate(value, fallback = '게시일 정보 없음') {
   }
 
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`
+}
+
+function getKeywordText(keyword) {
+  if (typeof keyword === 'string') {
+    return keyword
+  }
+
+  return keyword?.keywordText || keyword?.keyword_text || keyword?.keyword || keyword?.text || keyword?.name || ''
+}
+
+function formatFocusKeywordMeta(keyword) {
+  const occurrenceCount = Number(keyword?.occurrenceCount ?? keyword?.occurrence_count)
+  const sentenceCount = Number(keyword?.sentenceCount ?? keyword?.sentence_count)
+  const metaItems = []
+
+  if (Number.isFinite(sentenceCount) && sentenceCount > 0) {
+    metaItems.push(`${Math.round(sentenceCount)}개 문장`)
+  }
+
+  if (Number.isFinite(occurrenceCount) && occurrenceCount > 0) {
+    metaItems.push(`${Math.round(occurrenceCount)}회 등장`)
+  }
+
+  return metaItems.join(' / ')
 }
 
 function getCountryMeta(countryCode = '') {
@@ -1888,26 +1913,15 @@ function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
   )
 }
 
-function getComparisonVideoKeywords(video, graphData, relationEdge) {
-  const candidates = [
-    video?.analysisKeywords,
-    video?.emotionKeywords,
-    video?.keywords,
-    relationEdge?.keywords,
-    graphData?.mainKeywords,
-    graphData?.sharedKeywords,
-  ]
-
-  for (const candidate of candidates) {
-    if (Array.isArray(candidate) && candidate.length) {
-      return candidate
-        .map((keyword) => (typeof keyword === 'string' ? keyword : keyword?.keyword || keyword?.text || keyword?.name || ''))
-        .filter(Boolean)
-        .slice(0, 5)
-    }
+function getComparisonExpressionGroups(video) {
+  return {
+    focusKeywords: (Array.isArray(video?.focusKeywords) ? video.focusKeywords : [])
+      .filter((keyword) => getKeywordText(keyword))
+      .slice(0, MAX_COMPARISON_EXPRESSION_KEYWORDS),
+    emotionKeywords: (Array.isArray(video?.emotionKeywords) ? video.emotionKeywords : [])
+      .filter((keyword) => getKeywordText(keyword))
+      .slice(0, MAX_COMPARISON_EXPRESSION_KEYWORDS),
   }
-
-  return []
 }
 
 function findComparisonEdge(graphData, comparedVideo) {
@@ -1931,9 +1945,9 @@ function findComparisonEdge(graphData, comparedVideo) {
   }) || null
 }
 
-function ComparisonVideoModalCard({ video, title, relationEdge, graphData }) {
+function ComparisonVideoModalCard({ video, title }) {
   const country = getCountryMeta(video?.countryCode)
-  const keywords = getComparisonVideoKeywords(video, graphData, relationEdge)
+  const { focusKeywords, emotionKeywords } = getComparisonExpressionGroups(video)
 
   return (
     <article className={`comparison-graph-page__compare-card comparison-graph-page__compare-card--${country.tone}`}>
@@ -1961,15 +1975,57 @@ function ComparisonVideoModalCard({ video, title, relationEdge, graphData }) {
 
       <section className="comparison-graph-page__compare-keywords">
         <h4>핵심 표현</h4>
-        {keywords.length ? (
-          <div>
-            {keywords.map((keyword, index) => (
-              <span key={`${video?.videoId || title}-${keyword}-${index}`}>{keyword}</span>
-            ))}
+        <div className="comparison-graph-page__compare-keyword-group">
+          <div className="comparison-graph-page__compare-keyword-head">
+            <strong>중점 키워드</strong>
+            <em>{focusKeywords.length}개</em>
           </div>
-        ) : (
-          <p>핵심 표현 정보가 없습니다.</p>
-        )}
+          {focusKeywords.length ? (
+            <div className="comparison-graph-page__compare-keyword-list">
+              {focusKeywords.map((keyword, index) => {
+                const keywordText = getKeywordText(keyword)
+                const keywordMeta = formatFocusKeywordMeta(keyword)
+
+                return (
+                  <span
+                    key={`${video?.videoId || title}-focus-${keywordText}-${index}`}
+                    className="comparison-graph-page__compare-keyword-chip comparison-graph-page__compare-keyword-chip--focus"
+                  >
+                    <strong>{keywordText}</strong>
+                    {keywordMeta ? <em>{keywordMeta}</em> : null}
+                  </span>
+                )
+              })}
+            </div>
+          ) : (
+            <p>중점 키워드가 없습니다.</p>
+          )}
+        </div>
+
+        <div className="comparison-graph-page__compare-keyword-group">
+          <div className="comparison-graph-page__compare-keyword-head">
+            <strong>감정 표현</strong>
+            <em>{emotionKeywords.length}개</em>
+          </div>
+          {emotionKeywords.length ? (
+            <div className="comparison-graph-page__compare-keyword-list">
+              {emotionKeywords.map((keyword, index) => {
+                const keywordText = getKeywordText(keyword)
+
+                return (
+                  <span
+                    key={`${video?.videoId || title}-emotion-${keywordText}-${index}`}
+                    className="comparison-graph-page__compare-keyword-chip"
+                  >
+                    {keywordText}
+                  </span>
+                )
+              })}
+            </div>
+          ) : (
+            <p>감정 표현 키워드가 없습니다.</p>
+          )}
+        </div>
       </section>
     </article>
   )
