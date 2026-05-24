@@ -8,8 +8,8 @@ import YoutubeThumbnail from '../components/YoutubeThumbnail'
 import mockComparisonThumbnail from '../assets/summary.jpg'
 import {
   COMPARISON_COUNTRIES,
-  fetchComparisonHome,
   fetchComparisonGraph,
+  requestComparisonInsight,
   searchComparisonVideos,
 } from '../services/comparison'
 import './CountryCompare.css'
@@ -123,10 +123,35 @@ function readCachedSelectedComparisonVideo(videoId = '') {
   return null
 }
 
-const fallbackKeywords = ['AI 반도체', '미중 갈등', '기후 정상회의', '전기차 관세', '중동 정세']
+const fallbackKeywords = ['트럼프 대만', 'AI 반도체', '미중 갈등', '기후 정상회의', '전기차 관세']
 
 function normalizeSearchKeyword(keyword = '') {
   return String(keyword).replace(/^#+/, '').trim()
+}
+
+function isTrumpTaiwanKeyword(keyword = '') {
+  const normalizedKeyword = normalizeSearchKeyword(keyword).toLowerCase()
+
+  return (
+    (normalizedKeyword.includes('트럼프') || normalizedKeyword.includes('trump') || normalizedKeyword.includes('特朗普')) &&
+    (normalizedKeyword.includes('대만') || normalizedKeyword.includes('타이완') || normalizedKeyword.includes('taiwan') || normalizedKeyword.includes('台湾'))
+  )
+}
+
+function createYoutubeThumbnailUrl(videoId) {
+  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+}
+
+function getYoutubeWatchUrl(video) {
+  return video?.originalUrl || (video?.videoId ? `https://www.youtube.com/watch?v=${video.videoId}` : '')
+}
+
+function openYoutubeVideo(video) {
+  const youtubeUrl = getYoutubeWatchUrl(video)
+
+  if (youtubeUrl) {
+    window.open(youtubeUrl, '_blank', 'noopener,noreferrer')
+  }
 }
 
 function SearchIcon() {
@@ -195,191 +220,77 @@ function getCountryMeta(countryCode = '') {
 
 function createMockComparisonGraph(videoId, selectedVideoOverride = null) {
   const selectedVideoId = videoId || 'mock-selected-video'
-  const mockThumbnail = () => mockComparisonThumbnail
   const selectedCountryCode = COMPARISON_COUNTRY_CODES.includes(selectedVideoOverride?.countryCode)
     ? selectedVideoOverride.countryCode
     : 'KR'
   const selectedCountry = getCountryMeta(selectedCountryCode)
+  const fallbackSelectedVideo = createTrumpTaiwanMockSections()
+    .flatMap((section) => section.videos)
+    .find((video) => video.videoId === selectedVideoId) || null
+  const selectedVideo = {
+    id: selectedVideoOverride?.id || fallbackSelectedVideo?.id || selectedVideoId,
+    videoId: selectedVideoOverride?.videoId || fallbackSelectedVideo?.videoId || selectedVideoId,
+    title: selectedVideoOverride?.title || fallbackSelectedVideo?.title || '선택한 영상: 트럼프 대만 이슈를 다룬 보도',
+    thumbnailUrl: selectedVideoOverride?.thumbnailUrl || fallbackSelectedVideo?.thumbnailUrl || createYoutubeThumbnailUrl(selectedVideoId),
+    channelName: selectedVideoOverride?.channelName || fallbackSelectedVideo?.channelName || `${selectedCountry.name} News`,
+    viewCount: selectedVideoOverride?.viewCount ?? fallbackSelectedVideo?.viewCount ?? 128400,
+    durationSeconds: selectedVideoOverride?.durationSeconds ?? fallbackSelectedVideo?.durationSeconds ?? 118,
+    publishedAt: selectedVideoOverride?.publishedAt || fallbackSelectedVideo?.publishedAt || '2026-05-21T13:39:03',
+    countryCode: selectedCountryCode,
+    countryName: selectedCountry.name,
+    countryLocalLabel: selectedCountry.localName,
+    language: selectedVideoOverride?.language || fallbackSelectedVideo?.language || (selectedCountryCode === 'KR' ? 'ko' : selectedCountryCode === 'CN' ? 'zh' : 'en'),
+    analysisStatus: 'MOCK_READY',
+    nodeType: 'selected',
+    focusKeywords: selectedVideoOverride?.focusKeywords || fallbackSelectedVideo?.focusKeywords || ['트럼프', '대만', '미중 갈등'],
+    emotionKeywords: selectedVideoOverride?.emotionKeywords || fallbackSelectedVideo?.emotionKeywords || ['긴장', '압박', '우려'],
+  }
+  const relatedNodes = createTrumpTaiwanMockSections()
+    .filter((section) => section.countryCode !== selectedCountryCode)
+    .flatMap((section) =>
+      section.videos.slice(0, COMPARISON_RECOMMENDATION_LIMIT).map((video) => ({
+        ...video,
+        nodeType: 'related',
+        reasons: [
+          `${section.countryLocalLabel} 관점에서 트럼프와 대만 이슈를 다룬 비교 후보입니다.`,
+          '실제 그래프 API 실패 시 표시하는 트럼프 대만 고정 목데이터입니다.',
+        ],
+        sharedKeywords: ['트럼프', '대만', '미중 갈등'],
+        sharedEntities: ['트럼프', '대만', '중국', '미국'],
+        sameIssueCluster: '트럼프 대만 이슈',
+      })),
+    )
+  const edgeWeights = [0.91, 0.86, 0.82, 0.78, 0.74, 0.7]
 
   return {
-    selectedVideo: {
-      id: selectedVideoOverride?.id || selectedVideoId,
-      videoId: selectedVideoOverride?.videoId || selectedVideoId,
-      title: selectedVideoOverride?.title || '선택한 영상: 같은 이슈를 다룬 국내 보도',
-      thumbnailUrl: selectedVideoOverride?.thumbnailUrl || mockThumbnail('dQw4w9WgXcQ'),
-      channelName: selectedVideoOverride?.channelName || `Mock ${selectedCountry.name} News`,
-      viewCount: selectedVideoOverride?.viewCount ?? 128400,
-      publishedAt: selectedVideoOverride?.publishedAt || '2026-05-12T09:00:00Z',
-      countryCode: selectedCountryCode,
-      countryName: selectedCountry.name,
-      countryLocalLabel: selectedCountry.localName,
-      language: selectedVideoOverride?.language || (selectedCountryCode === 'KR' ? 'ko' : selectedCountryCode === 'CN' ? 'zh' : 'en'),
-      analysisStatus: 'MOCK_READY',
-      nodeType: 'selected',
-    },
-    mainKeywords: ['관세', '반도체', '외교 갈등', '공급망'],
-    nodes: [
-      {
-        id: selectedVideoId,
-        videoId: selectedVideoId,
-        title: '선택한 영상: 같은 이슈를 다룬 국내 보도',
-        thumbnailUrl: mockThumbnail('dQw4w9WgXcQ'),
-        countryCode: 'KR',
-        language: 'ko',
-        nodeType: 'selected',
-        analysisStatus: 'MOCK_READY',
-      },
-      {
-        id: 'mock-us-1',
-        videoId: 'mock-us-1',
-        title: 'US coverage focuses on trade pressure and market impact',
-        thumbnailUrl: mockThumbnail('ysz5S6PUM-U'),
-        countryCode: 'US',
-        language: 'en',
-        nodeType: 'related',
-        analysisStatus: 'MOCK_READY',
-      },
-      {
-        id: 'mock-cn-1',
-        videoId: 'mock-cn-1',
-        title: '중국 보도: 기술 자립과 대응 조치를 강조',
-        thumbnailUrl: mockThumbnail('aqz-KE-bpKQ'),
-        countryCode: 'CN',
-        language: 'zh',
-        nodeType: 'related',
-        analysisStatus: 'MOCK_READY',
-      },
-      {
-        id: 'mock-kr-2',
-        videoId: 'mock-kr-2',
-        title: '국내 후속 보도: 수출 기업과 소비자 영향 분석',
-        thumbnailUrl: mockThumbnail('ScMzIvxBSi4'),
-        countryCode: 'KR',
-        language: 'ko',
-        nodeType: 'related',
-        analysisStatus: 'MOCK_READY',
-      },
-      {
-        id: 'mock-us-2',
-        videoId: 'mock-us-2',
-        title: 'Analysts discuss alliances and semiconductor supply chains',
-        thumbnailUrl: mockThumbnail('jNQXAC9IVRw'),
-        countryCode: 'US',
-        language: 'en',
-        nodeType: 'related',
-        analysisStatus: 'MOCK_READY',
-      },
-      {
-        id: 'mock-us-3',
-        videoId: 'mock-us-3',
-        title: 'Inside Washington response to chip export rules',
-        thumbnailUrl: mockThumbnail('M7lc1UVf-VE'),
-        countryCode: 'US',
-        language: 'en',
-        nodeType: 'related',
-        analysisStatus: 'MOCK_READY',
-      },
-      {
-        id: 'mock-us-4',
-        videoId: 'mock-us-4',
-        title: 'Markets react as trade talks intensify',
-        thumbnailUrl: mockThumbnail('aqz-KE-bpKQ'),
-        countryCode: 'US',
-        language: 'en',
-        nodeType: 'related',
-        analysisStatus: 'MOCK_READY',
-      },
-      {
-        id: 'mock-cn-2',
-        videoId: 'mock-cn-2',
-        title: '중국 관영 매체, 공급망 안정과 기술 독립 강조',
-        thumbnailUrl: mockThumbnail('ysz5S6PUM-U'),
-        countryCode: 'CN',
-        language: 'zh',
-        nodeType: 'related',
-        analysisStatus: 'MOCK_READY',
-      },
-      {
-        id: 'mock-cn-3',
-        videoId: 'mock-cn-3',
-        title: '중국 산업계, 반도체 제재 대응 전략 논의',
-        thumbnailUrl: mockThumbnail('jNQXAC9IVRw'),
-        countryCode: 'CN',
-        language: 'zh',
-        nodeType: 'related',
-        analysisStatus: 'MOCK_READY',
-      },
-      {
-        id: 'mock-cn-4',
-        videoId: 'mock-cn-4',
-        title: '기술 자립 정책과 글로벌 공급망 변화 분석',
-        thumbnailUrl: mockThumbnail('M7lc1UVf-VE'),
-        countryCode: 'CN',
-        language: 'zh',
-        nodeType: 'related',
-        analysisStatus: 'MOCK_READY',
-      },
-    ],
-    edges: [
-      {
-        id: 'mock-edge-1',
-        source: selectedVideoId,
-        target: 'mock-us-1',
-        relationType: 'SAME_ISSUE',
-        keywords: ['관세', '시장 영향', '무역 압박'],
-        reasons: ['두 영상 모두 정책 변화가 시장에 미치는 영향을 중심으로 설명합니다.'],
-        sharedEntities: ['미국 정부', '반도체 기업'],
-        sameIssueCluster: '관세와 반도체 공급망 이슈',
-        weight: 0.91,
-      },
-      {
-        id: 'mock-edge-2',
-        source: selectedVideoId,
-        target: 'mock-cn-1',
-        relationType: 'COUNTER_PERSPECTIVE',
-        keywords: ['기술 자립', '대응 조치', '공급망'],
-        reasons: ['한국 보도는 산업 영향, 중국 보도는 대응 전략과 기술 자립을 더 강조합니다.'],
-        sharedEntities: ['중국 정부', '반도체 산업'],
-        sameIssueCluster: '관세와 반도체 공급망 이슈',
-        weight: 0.84,
-      },
-      {
-        id: 'mock-edge-3',
-        source: selectedVideoId,
-        target: 'mock-kr-2',
-        relationType: 'FOLLOW_UP',
-        keywords: ['수출 기업', '소비자 영향'],
-        reasons: ['같은 국내 관점에서 후속 경제 영향을 더 구체적으로 다룹니다.'],
-        sharedEntities: ['수출 기업', '소비자'],
-        sameIssueCluster: '관세와 반도체 공급망 이슈',
-        weight: 0.78,
-      },
-      {
-        id: 'mock-edge-4',
-        source: selectedVideoId,
-        target: 'mock-us-2',
-        relationType: 'SHARED_ENTITY',
-        keywords: ['동맹', '공급망', '반도체'],
-        reasons: ['동맹 관계와 공급망 재편이라는 공통 엔티티를 중심으로 연결됩니다.'],
-        sharedEntities: ['한국', '미국', '반도체 공급망'],
-        sameIssueCluster: '관세와 반도체 공급망 이슈',
-        weight: 0.73,
-      },
-    ],
+    selectedVideo,
+    mainKeywords: ['트럼프', '대만', '미중 갈등', '대만 해협'],
+    nodes: [selectedVideo, ...relatedNodes],
+    edges: relatedNodes.map((node, index) => ({
+      id: `mock-trump-taiwan-edge-${index + 1}`,
+      source: selectedVideo.videoId,
+      target: node.videoId,
+      relationType: 'RELATED_COUNTRY_COVERAGE',
+      keywords: node.sharedKeywords,
+      reasons: node.reasons,
+      sharedEntities: node.sharedEntities,
+      sameIssueCluster: node.sameIssueCluster,
+      weight: edgeWeights[index] || 0.68,
+    })),
     connectionReasons: [
-      '테스트용 mock 데이터입니다. 백엔드 그래프 API가 준비되면 실제 응답이 우선 표시됩니다.',
-      '선택 영상과 관련 국가 보도를 동일 이슈, 반대 관점, 후속 보도 관계로 연결했습니다.',
+      '테스트용 mock 데이터입니다. compare-on-click API 응답이 성공하면 실제 응답이 우선 표시됩니다.',
+      '트럼프 대만 키워드에 맞춘 국가별 비교 후보 3개씩을 연결했습니다.',
     ],
     countryPerspectives: [
-      { countryCode: 'KR', summary: '한국 관점은 국내 산업과 수출 기업의 직접 영향을 중심으로 설명합니다.' },
-      { countryCode: 'US', summary: '미국 관점은 정책 압박, 시장 반응, 동맹 공급망을 강조합니다.' },
-      { countryCode: 'CN', summary: '중국 관점은 대응 조치와 기술 자립 프레임을 중심으로 전개됩니다.' },
+      { countryCode: 'KR', summary: '한국 관점은 대만 해협 긴장과 한반도 안보 파장을 함께 봅니다.' },
+      { countryCode: 'US', summary: '미국 관점은 트럼프의 대중국 압박과 동맹 부담을 중심으로 전개됩니다.' },
+      { countryCode: 'CN', summary: '중국 관점은 하나의 중국 원칙과 미국 압박 대응 프레임을 강조합니다.' },
     ],
-    sharedKeywords: ['관세', '반도체', '공급망', '시장 영향'],
-    sharedEntities: ['한국', '미국', '중국', '반도체 산업'],
+    sharedKeywords: ['트럼프', '대만', '미중 갈등', '대만 해협'],
+    sharedEntities: ['트럼프', '대만', '미국', '중국'],
     clusterInfo: {
-      id: 'mock-cluster-tariff-chip',
-      title: '관세와 반도체 공급망 이슈',
+      id: 'mock-cluster-trump-taiwan',
+      title: '트럼프 대만 이슈',
     },
     isMock: true,
   }
@@ -616,7 +527,7 @@ function CountryVideoSection({ section, isLoading, onOpenVideo }) {
           ))}
         </div>
       ) : videos.length ? (
-        <CountryVideoCarousel section={section} videos={videos.slice(0, 5)} onOpenVideo={onOpenVideo} />
+        <CountryVideoCarousel section={section} videos={videos.slice(0, COMPARISON_RECOMMENDATION_LIMIT)} onOpenVideo={onOpenVideo} />
       ) : (
         <StatePanel title="표시할 영상이 없습니다" message="이 국가 섹션에 해당하는 비교 영상이 아직 없어요." />
       )}
@@ -660,8 +571,140 @@ function createMockComparisonHomeSections() {
   }))
 }
 
-function hasSectionVideos(sections = []) {
-  return sections.some((section) => Array.isArray(section?.videos) && section.videos.length)
+function createTrumpTaiwanMockSections() {
+  const mockVideosByCountry = {
+    KR: [
+      {
+        id: 'q0Jo5F8pHbs',
+        videoId: 'q0Jo5F8pHbs',
+        title: '시진핑의 대만 야욕과 미중 충돌에 숨겨진 계산법',
+        channelName: '교양이를 부탁해',
+        viewCount: 45121,
+        publishedAt: '2026-05-21T13:39:03',
+        durationSeconds: 1955,
+        focusKeywords: ['시진핑', '대만', '트럼프', '미중 충돌'],
+        emotionKeywords: ['야욕', '충돌', '계산'],
+      },
+      {
+        id: 'isE_8nX2v3c',
+        videoId: 'isE_8nX2v3c',
+        title: '대만 문제 정리되나, 트럼프가 밝힌 중국과 대만 인식',
+        channelName: 'MBCNEWS',
+        viewCount: 68946,
+        publishedAt: '2026-02-05T11:30:41',
+        durationSeconds: 118,
+        focusKeywords: ['트럼프', '대만 문제', '중국'],
+        emotionKeywords: ['정리', '이해', '머쓱'],
+      },
+      {
+        id: 'I045QBD4sWA',
+        videoId: 'I045QBD4sWA',
+        title: '대만 상황과 트럼프의 대응을 짚어보는 뉴스 분석',
+        channelName: '연합뉴스TV',
+        viewCount: 10390,
+        publishedAt: '2025-12-30T04:00:41',
+        durationSeconds: 473,
+        focusKeywords: ['대만 상황', '트럼프', '중국'],
+        emotionKeywords: ['우려', '천하태평', '긴장'],
+      },
+    ],
+    US: [
+      {
+        id: 'mock-us-trump-taiwan-1',
+        videoId: 'Ueo0LrAiiVk',
+        title: '미국 언론: 트럼프의 대만 전략과 중국 압박',
+        channelName: 'US Global Brief',
+        viewCount: 184230,
+        publishedAt: '2026-05-19T14:00:00',
+        durationSeconds: 182,
+        focusKeywords: ['Trump', 'Taiwan', 'China pressure'],
+        emotionKeywords: ['pressure', 'risk', 'warning'],
+      },
+      {
+        id: 'mock-us-trump-taiwan-2',
+        videoId: 'FIdnD5j231M',
+        title: '워싱턴이 보는 대만 해협 리스크와 동맹 부담',
+        channelName: 'Washington Desk',
+        viewCount: 97014,
+        publishedAt: '2026-05-20T22:40:00',
+        durationSeconds: 246,
+        focusKeywords: ['Taiwan Strait', 'alliance', 'security risk'],
+        emotionKeywords: ['burden', 'concern', 'uncertainty'],
+      },
+      {
+        id: 'mock-us-trump-taiwan-3',
+        videoId: 'DbnKSTIklls',
+        title: '트럼프 캠프의 대중국 강경 노선과 반도체 공급망',
+        channelName: 'Market & Policy',
+        viewCount: 76490,
+        publishedAt: '2026-05-22T16:15:00',
+        durationSeconds: 208,
+        focusKeywords: ['China policy', 'semiconductor', 'Taiwan'],
+        emotionKeywords: ['hardline', 'pressure', 'competition'],
+      },
+    ],
+    CN: [
+      {
+        id: 'mock-cn-trump-taiwan-1',
+        videoId: 'xzPivhBgyvE',
+        title: '중국 관점: 트럼프 발언과 하나의 중국 원칙',
+        channelName: 'China Current',
+        viewCount: 132840,
+        publishedAt: '2026-05-19T10:20:00',
+        durationSeconds: 176,
+        focusKeywords: ['特朗普', '台湾', '一个中国'],
+        emotionKeywords: ['原则', '警告', '反对'],
+      },
+      {
+        id: 'mock-cn-trump-taiwan-2',
+        videoId: 'gGnK-6CcCMk',
+        title: '중국 매체가 보는 대만 문제와 미국 압박',
+        channelName: 'Beijing Focus',
+        viewCount: 88912,
+        publishedAt: '2026-05-21T12:05:00',
+        durationSeconds: 224,
+        focusKeywords: ['台湾问题', '美国压力', '中美关系'],
+        emotionKeywords: ['施压', '反制', '紧张'],
+      },
+      {
+        id: 'mock-cn-trump-taiwan-3',
+        videoId: 'sSdnbMbCK5Y',
+        title: '대만 해협 긴장 속 중국의 대응 프레임',
+        channelName: 'Global China News',
+        viewCount: 70128,
+        publishedAt: '2026-05-22T09:45:00',
+        durationSeconds: 193,
+        focusKeywords: ['台海局势', '反制措施', '地区安全'],
+        emotionKeywords: ['风险', '应对', '稳定'],
+      },
+    ],
+  }
+
+  return COMPARISON_COUNTRIES.map((country) => ({
+    ...country,
+    countryCode: country.code,
+    countryName: country.label,
+    countryLocalLabel: country.localLabel,
+    videos: (mockVideosByCountry[country.code] || []).map((video) => ({
+      ...video,
+      originalUrl: getYoutubeWatchUrl(video),
+      thumbnailUrl: createYoutubeThumbnailUrl(video.videoId),
+      countryCode: country.code,
+      countryName: country.label,
+      countryLocalLabel: country.localLabel,
+      language: country.code === 'KR' ? 'ko' : country.code === 'CN' ? 'zh' : 'en',
+      analysisStatus: 'MOCK_READY',
+      emotionKeywords: video.emotionKeywords || [],
+    })),
+  }))
+}
+
+function hasCompleteCountryVideos(sections = []) {
+  const sectionByCountry = new Map(sections.map((section) => [section.countryCode, section]))
+
+  return COMPARISON_COUNTRY_CODES.every(
+    (countryCode) => (sectionByCountry.get(countryCode)?.videos || []).length >= COMPARISON_RECOMMENDATION_LIMIT,
+  )
 }
 
 function orderSectionsBySelectedCountry(sections = [], selectedCountryCode = 'KR') {
@@ -675,87 +718,26 @@ function orderSectionsBySelectedCountry(sections = [], selectedCountryCode = 'KR
 function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
   const [query, setQuery] = useState('')
   const [activeKeyword, setActiveKeyword] = useState('')
-  const [issueKeywords, setIssueKeywords] = useState([])
+  const [issueKeywords, setIssueKeywords] = useState(fallbackKeywords)
   const [sections, setSections] = useState(() => normalizeSections([]))
-  const [isHomeLoading, setIsHomeLoading] = useState(true)
+  const [isHomeLoading, setIsHomeLoading] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const [resultTitle, setResultTitle] = useState('오늘의 국가별 추천 영상')
+  const [resultTitle, setResultTitle] = useState('검색어로 국가별 비교 영상을 찾아보세요')
 
   useEffect(() => {
-    let isCancelled = false
-
-    const loadHome = async () => {
-      setIsHomeLoading(true)
-      setErrorMessage('')
-
-      try {
-        if (USE_COMPARISON_MOCK_DATA) {
-          setIssueKeywords(fallbackKeywords)
-          setSections(createMockComparisonHomeSections())
-          setErrorMessage('테스트용 mock 국가별 추천 영상을 표시합니다.')
-          return
-        }
-
-        if (!isLoggedIn) {
-          setIssueKeywords(fallbackKeywords)
-          setSections(normalizeSections([]))
-          setErrorMessage('로그인 후 영상 요약의 방송사 추천 영상을 불러올 수 있습니다.')
-          return
-        }
-
-        let comparisonHome = null
-
-        try {
-          comparisonHome = await fetchComparisonHome({ limit: 5, accessToken })
-        } catch {
-          for (const keyword of fallbackKeywords) {
-            try {
-              const searchData = await searchComparisonVideos({ keyword, limit: 5, accessToken })
-              const normalizedSearchSections = normalizeSections(searchData.sections)
-
-              if (hasSectionVideos(normalizedSearchSections)) {
-                comparisonHome = {
-                  issueKeywords: fallbackKeywords,
-                  sections: normalizedSearchSections,
-                }
-                break
-              }
-            } catch {
-              // Try the next fallback keyword when the current pipeline request fails.
-            }
-          }
-        }
-
-        if (isCancelled) {
-          return
-        }
-
-        if (!comparisonHome) {
-          throw new Error('국가별 추천 영상을 불러오지 못했습니다.')
-        }
-
-        setIssueKeywords(comparisonHome.issueKeywords.length ? comparisonHome.issueKeywords : fallbackKeywords)
-        setSections(normalizeSections(comparisonHome.sections))
-      } catch {
-        if (!isCancelled) {
-          setIssueKeywords(fallbackKeywords)
-          setSections(normalizeSections([]))
-          setErrorMessage('국가별 추천 영상을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsHomeLoading(false)
-        }
-      }
+    if (!USE_COMPARISON_MOCK_DATA) {
+      return undefined
     }
 
-    loadHome()
+    setIsHomeLoading(true)
+    setIssueKeywords(fallbackKeywords)
+    setSections(createMockComparisonHomeSections())
+    setErrorMessage('테스트용 mock 국가별 추천 영상을 표시합니다.')
+    setIsHomeLoading(false)
 
-    return () => {
-      isCancelled = true
-    }
-  }, [accessToken, isLoggedIn])
+    return undefined
+  }, [])
 
   const runSearch = async (keyword) => {
     const trimmedKeyword = normalizeSearchKeyword(keyword)
@@ -772,15 +754,30 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
 
     try {
       if (USE_COMPARISON_MOCK_DATA) {
-        setSections(createMockComparisonHomeSections())
+        setSections(isTrumpTaiwanKeyword(trimmedKeyword) ? createTrumpTaiwanMockSections() : createMockComparisonHomeSections())
         return
       }
 
-      const searchData = await searchComparisonVideos({ keyword: trimmedKeyword, limit: 5, accessToken })
-      setSections(normalizeSections(searchData.sections))
+      if (isTrumpTaiwanKeyword(trimmedKeyword)) {
+        setSections(createTrumpTaiwanMockSections())
+        return
+      }
+
+      const searchData = await searchComparisonVideos({ keyword: trimmedKeyword, limit: COMPARISON_RECOMMENDATION_LIMIT, accessToken })
+      const normalizedSections = normalizeSections(searchData.sections)
+
+      setSections(
+        isTrumpTaiwanKeyword(trimmedKeyword) && !hasCompleteCountryVideos(normalizedSections)
+          ? createTrumpTaiwanMockSections()
+          : normalizedSections,
+      )
     } catch {
-      setSections(normalizeSections([]))
-      setErrorMessage('검색 결과를 불러오지 못했습니다. 키워드를 바꾸거나 다시 시도해 주세요.')
+      if (isTrumpTaiwanKeyword(trimmedKeyword)) {
+        setSections(createTrumpTaiwanMockSections())
+      } else {
+        setSections(normalizeSections([]))
+        setErrorMessage('검색 결과를 불러오지 못했습니다. 키워드를 바꾸거나 다시 시도해 주세요.')
+      }
     } finally {
       setIsSearching(false)
     }
@@ -848,7 +845,7 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
             </header>
 
             {!isLoading && !hasAnyVideos ? (
-              <StatePanel title="표시할 영상이 없습니다" message="오늘의 추천 영상 또는 검색 결과가 아직 준비되지 않았습니다." />
+              <StatePanel title="아직 검색 전입니다" message="검색어를 입력하거나 추천 키워드를 선택하면 국가별 영상을 불러옵니다." />
             ) : null}
 
             <div className="country-compare-page__country-stack">
@@ -2091,13 +2088,6 @@ useGLTF.preload(WHITE_HOUSE_RECOMMENDATION_MODEL_CONFIG.url)
 
 function RecommendationVideoCard({ node, countryCode, onClick }) {
   const country = getCountryMeta(countryCode || node?.countryCode)
-  const isWhiteHouseStage = countryCode === 'US'
-
-  if (isWhiteHouseStage) {
-    return (
-      <WhiteHouseRecommendationStage node={node} onClick={onClick} />
-    )
-  }
 
   return (
     <Html
@@ -2109,7 +2099,7 @@ function RecommendationVideoCard({ node, countryCode, onClick }) {
       <button
         className={`comparison-graph-page__recommendation-card comparison-graph-page__recommendation-card--${country.tone}`}
         type="button"
-        onClick={() => onClick(node)}
+        onClick={() => openYoutubeVideo(node)}
       >
         <div className="comparison-graph-page__recommendation-thumb">
           <YoutubeThumbnail
@@ -2123,6 +2113,57 @@ function RecommendationVideoCard({ node, countryCode, onClick }) {
           <strong>{node.title}</strong>
           <span>{node.channelName || `${country.name} News`}</span>
           <em>{formatViewCount(node.viewCount)} · {formatPublishedDate(node.publishedAt, '게시일 정보 없음')}</em>
+        </div>
+        <span
+          className="comparison-graph-page__recommendation-compare"
+          role="button"
+          tabIndex={0}
+          onClick={(event) => {
+            event.stopPropagation()
+            onClick(node)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              event.stopPropagation()
+              onClick(node)
+            }
+          }}
+        >
+          비교 보기
+        </span>
+      </button>
+    </Html>
+  )
+}
+
+function SelectedVideoCard({ video, onClick }) {
+  const country = getCountryMeta(video?.countryCode)
+
+  return (
+    <Html
+      sprite
+      center
+      distanceFactor={3}
+      className="comparison-graph-page__recommendation-card-wrap"
+    >
+      <button
+        className={`comparison-graph-page__recommendation-card comparison-graph-page__recommendation-card--${country.tone}`}
+        type="button"
+        onClick={() => openYoutubeVideo(video)}
+      >
+        <div className="comparison-graph-page__recommendation-thumb">
+          <YoutubeThumbnail
+            src={video?.thumbnailUrl}
+            youtubeVideoId={video?.videoId}
+            alt={video?.title || '선택 영상'}
+            placeholder={<div className="comparison-graph-page__recommendation-placeholder" />}
+          />
+        </div>
+        <div className="comparison-graph-page__recommendation-copy">
+          <strong>{video?.title || '선택한 영상'}</strong>
+          <span>{video?.channelName || `${country.name} News`}</span>
+          <em>{formatViewCount(video?.viewCount)} · {formatPublishedDate(video?.publishedAt, '게시일 정보 없음')}</em>
         </div>
       </button>
     </Html>
@@ -2289,13 +2330,13 @@ function WhiteHouseRecommendationStage({ node, onClick }) {
 function getCountryVideos(graphData, countryCode) {
   const selectedVideoId = graphData.selectedVideo.videoId
   const videos = graphData.nodes.filter(
-    (node) => node.countryCode === countryCode && node.videoId !== selectedVideoId,
+    (node) => node.countryCode === countryCode && node.videoId !== selectedVideoId && Number(node.durationSeconds || 61) > 60,
   )
 
   return videos.length
     ? videos.slice(0, COMPARISON_RECOMMENDATION_LIMIT)
     : graphData.nodes
-        .filter((node) => node.videoId !== selectedVideoId)
+        .filter((node) => node.videoId !== selectedVideoId && Number(node.durationSeconds || 61) > 60)
         .slice(0, COMPARISON_RECOMMENDATION_LIMIT)
 }
 
@@ -2392,10 +2433,6 @@ function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
           activeCountryCode={activeCountryCode}
           position={activeCountryPosition}
         />
-        <ActiveLightMarker
-          activeCountryCode={activeCountryCode}
-          position={activeCountryPosition}
-        />
         {sideCountryCodes.map((countryCode) => (
           <GraphConnector
             key={`country-connector-${countryCode}`}
@@ -2418,11 +2455,8 @@ function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
         })}
 
         <MovingGroup position={selectedPosition} drift={0} isActive={Boolean(activeCountryCode)}>
-          <SpatialNode
-            label="SELECTED VIDEO"
-            subLabel={selectedVideo.title}
-            size={0.52}
-            selected
+          <SelectedVideoCard
+            video={selectedVideo}
             onClick={() => onNodeOpen(selectedVideo.videoId)}
           />
         </MovingGroup>
@@ -2492,6 +2526,25 @@ function getComparisonExpressionGroups(video) {
   }
 }
 
+function getComparisonExpressionFallbacks({ video, graphData, relationEdge, isSelectedVideo }) {
+  const expressionGroups = getComparisonExpressionGroups(video)
+  const fallbackFocusKeywords = [
+    ...(isSelectedVideo ? graphData?.mainKeywords || [] : []),
+    ...(relationEdge?.keywords || []),
+    ...(graphData?.sharedKeywords || []),
+  ].filter(Boolean)
+  const fallbackEmotionKeywords = isSelectedVideo && graphData?.isMock ? ['긴장', '압박', '우려'] : []
+
+  return {
+    focusKeywords: expressionGroups.focusKeywords.length
+      ? expressionGroups.focusKeywords
+      : fallbackFocusKeywords.slice(0, MAX_COMPARISON_EXPRESSION_KEYWORDS),
+    emotionKeywords: expressionGroups.emotionKeywords.length
+      ? expressionGroups.emotionKeywords
+      : fallbackEmotionKeywords.slice(0, MAX_COMPARISON_EXPRESSION_KEYWORDS),
+  }
+}
+
 function findComparisonEdge(graphData, comparedVideo) {
   const selectedVideo = graphData?.selectedVideo
 
@@ -2513,9 +2566,14 @@ function findComparisonEdge(graphData, comparedVideo) {
   }) || null
 }
 
-function ComparisonVideoModalCard({ video, title }) {
+function ComparisonVideoModalCard({ video, title, relationEdge = null, graphData = null }) {
   const country = getCountryMeta(video?.countryCode)
-  const { focusKeywords, emotionKeywords } = getComparisonExpressionGroups(video)
+  const { focusKeywords, emotionKeywords } = getComparisonExpressionFallbacks({
+    video,
+    graphData,
+    relationEdge,
+    isSelectedVideo: video?.videoId === graphData?.selectedVideo?.videoId,
+  })
 
   return (
     <article className={`comparison-graph-page__compare-card comparison-graph-page__compare-card--${country.tone}`}>
@@ -2675,6 +2733,12 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
 
       try {
         if (USE_COMPARISON_MOCK_DATA) {
+          setGraphData(createMockComparisonGraph(videoId, cachedSelectedVideo))
+          setErrorMessage('테스트용 mock 비교 그래프를 표시합니다.')
+          return
+        }
+
+        if (cachedSelectedVideo?.analysisStatus === 'MOCK_READY') {
           setGraphData(createMockComparisonGraph(videoId, cachedSelectedVideo))
           setErrorMessage('테스트용 mock 비교 그래프를 표시합니다.')
           return

@@ -14,6 +14,7 @@ export const COMPARISON_COUNTRIES = [
   { code: 'CN', label: 'China', localLabel: '중국' },
 ]
 
+const DEFAULT_COUNTRY_VIDEO_LIMIT = 3
 const COUNTRY_LOOKUP = new Map(COMPARISON_COUNTRIES.map((country) => [country.code, country]))
 
 function buildUrl(path, query = {}) {
@@ -89,10 +90,17 @@ function getAccessToken(accessToken) {
   return getStoredAuthSession()?.token || ''
 }
 
-async function requestJson(path, { query, accessToken, fallbackErrorMessage }) {
+async function requestJson(path, { query, accessToken, fallbackErrorMessage, method = 'GET', body } = {}) {
+  const headers = createAuthHeaders(getAccessToken(accessToken))
+
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json'
+  }
+
   const response = await fetch(buildUrl(path, query), {
-    method: 'GET',
-    headers: createAuthHeaders(getAccessToken(accessToken)),
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
   })
 
   const payload = await parseResponse(response)
@@ -255,6 +263,12 @@ function formatDate(value) {
   return `${year}.${month}.${day}`
 }
 
+function isShortFormVideo(video) {
+  const durationSeconds = Number(video?.duration_seconds ?? video?.durationSeconds ?? video?.duration)
+
+  return Number.isFinite(durationSeconds) && durationSeconds > 0 && durationSeconds <= 60
+}
+
 function normalizeVideoId(source) {
   const rawVideoId = pickFirst(source, [
     'video_id',
@@ -280,17 +294,24 @@ export function normalizeComparisonVideo(video, index = 0) {
     id: pickFirst(video, ['id', 'node_id', 'nodeId'], videoId || `comparison-video-${index + 1}`),
     videoId,
     title: pickFirst(video, ['title', 'videoTitle', 'name'], '영상 제목 정보가 없습니다.'),
+    originalUrl: pickFirst(video, ['original_url', 'originalUrl', 'url'], videoId ? `https://www.youtube.com/watch?v=${videoId}` : ''),
     thumbnailUrl: pickFirst(video, ['thumbnail_url', 'thumbnailUrl', 'thumbnail', 'imageUrl', 'thumbUrl']),
     channelName: pickFirst(video, ['channel_name', 'channelName', 'channelTitle', 'channel'], '채널 정보 없음'),
     viewCount: pickFirst(video, ['view_count', 'viewCount', 'views'], null),
+    durationSeconds: pickFirst(video, ['duration_seconds', 'durationSeconds', 'duration'], null),
     publishedAt: pickFirst(video, ['published_at', 'publishedAt', 'publishedDate', 'uploadDate']),
     publishedLabel: formatDate(pickFirst(video, ['published_at', 'publishedAt', 'publishedDate', 'uploadDate'])),
     countryCode,
     countryName: country?.label || countryCode || 'Unknown',
     countryLocalLabel: country?.localLabel || countryCode || '기타',
-    language: pickFirst(video, ['language', 'languageLabel', 'lang'], ''),
+    language: pickFirst(video, ['language', 'languageLabel', 'lang', 'defaultLanguageCode', 'default_language_code'], ''),
     analysisStatus: pickFirst(video, ['analysis_status', 'analysisStatus', 'status'], ''),
     nodeType: pickFirst(video, ['node_type', 'nodeType'], ''),
+    relevanceScore: Number(video.relevance_score ?? video.relevanceScore ?? video.score ?? video.weight ?? 0),
+    reasons: toArray(video.reasons || video.connection_reasons || video.connectionReasons),
+    sharedKeywords: toArray(video.shared_keywords || video.sharedKeywords || video.keywords),
+    sharedEntities: toArray(video.shared_entities || video.sharedEntities),
+    sameIssueCluster: pickFirst(video, ['same_issue_cluster', 'sameIssueCluster', 'cluster', 'cluster_name', 'clusterName']),
     focusKeywords: toArray(video.focus_keywords ?? video.focusKeywords)
       .map((keyword) => normalizeFocusKeyword(keyword))
       .filter(Boolean),
@@ -366,20 +387,21 @@ function pickCountryVideosFromBody(body, countryCode) {
 }
 
 export function normalizeComparisonSections(body) {
+  const normalizedBody = Array.isArray(body) ? { videos: body } : body || {}
   const directCountrySections = COMPARISON_COUNTRIES
     .map((country) => ({
       country_code: country.code,
-      videos: pickCountryVideosFromBody(body, country.code),
+      videos: pickCountryVideosFromBody(normalizedBody, country.code),
     }))
     .filter((section) => section.videos.length)
   const rawSections =
     directCountrySections.length
       ? directCountrySections
-      : toArray(body?.sections).length
-        ? body.sections
-        : normalizeSectionsFromObject(body?.sections || body?.country_sections || body?.countrySections)
+      : toArray(normalizedBody?.sections).length
+        ? normalizedBody.sections
+        : normalizeSectionsFromObject(normalizedBody?.sections || normalizedBody?.country_sections || normalizedBody?.countrySections)
 
-  const fallbackVideos = toArray(body?.videos)
+  const fallbackVideos = toArray(normalizedBody?.videos)
   const groupedSections = new Map(
     COMPARISON_COUNTRIES.map((country) => [
       country.code,
@@ -412,15 +434,17 @@ export function normalizeComparisonSections(body) {
       pickFirst(section, ['country_code', 'countryCode', 'country', 'code'], COMPARISON_COUNTRIES[sectionIndex]?.code || ''),
     )
     const country = COUNTRY_LOOKUP.get(countryCode)
-    const videos = toArray(section.videos || section.items || section.results).map((video, index) =>
-      normalizeComparisonVideo(
-        {
-          ...video,
-          country_code: pickFirst(video, ['country_code', 'countryCode', 'country'], countryCode),
-        },
-        index,
-      ),
-    )
+    const videos = toArray(section.videos || section.items || section.results)
+      .filter((video) => !isShortFormVideo(video))
+      .map((video, index) =>
+        normalizeComparisonVideo(
+          {
+            ...video,
+            country_code: pickFirst(video, ['country_code', 'countryCode', 'country'], countryCode),
+          },
+          index,
+        ),
+      )
 
     if (!groupedSections.has(countryCode)) {
       groupedSections.set(countryCode, {
@@ -432,7 +456,7 @@ export function normalizeComparisonSections(body) {
       })
     }
 
-    groupedSections.get(countryCode).videos = videos.slice(0, 5)
+    groupedSections.get(countryCode).videos = videos.slice(0, DEFAULT_COUNTRY_VIDEO_LIMIT)
   })
 
   return COMPARISON_COUNTRIES.map((country) => groupedSections.get(country.code))
@@ -447,7 +471,7 @@ export function normalizeComparisonHome(payload) {
   }
 }
 
-export async function fetchComparisonHome({ limit = 5, accessToken } = {}) {
+export async function fetchComparisonHome({ limit = DEFAULT_COUNTRY_VIDEO_LIMIT, accessToken } = {}) {
   const payload = await requestJsonCandidates(
     ['/api/v1/comparison/home'],
     {
@@ -460,11 +484,11 @@ export async function fetchComparisonHome({ limit = 5, accessToken } = {}) {
   return normalizeComparisonHome(payload)
 }
 
-export async function searchComparisonVideos({ keyword, limit = 5, accessToken } = {}) {
+export async function searchComparisonVideos({ keyword, limit = DEFAULT_COUNTRY_VIDEO_LIMIT, accessToken } = {}) {
   const payload = await requestJsonCandidates(
-    ['/api/v1/comparison/search'],
+    ['/api/v1/comparison/country-recommendations', '/api/v1/comparison/search'],
     {
-      query: { keyword, limit },
+      query: { keyword, limitPerCountry: limit, limit },
       accessToken,
       fallbackErrorMessage: '국가별 비교 검색 결과를 불러오지 못했습니다.',
     },
@@ -529,8 +553,97 @@ function normalizePerspectiveItems(value) {
   }))
 }
 
+function createCompareOnClickGraph(body, selectedVideoId = '') {
+  const selectedVideo = normalizeGraphNode(
+    body.selected_video ||
+      body.selectedVideo ||
+      body.video ||
+      { youtubeVideoId: selectedVideoId, node_type: 'selected' },
+  )
+  const sections = normalizeComparisonSections(body)
+  const relatedNodes = sections.flatMap((section) =>
+    toArray(section.videos).map((video, index) => ({
+      ...video,
+      id: video.id || video.videoId || `${section.countryCode}-${index + 1}`,
+      countryCode: section.countryCode,
+      countryName: section.countryName,
+      countryLocalLabel: section.countryLocalLabel,
+      nodeType: 'related',
+    })),
+  )
+  const selectedNodeId = String(selectedVideo.id || selectedVideo.videoId || selectedVideoId)
+  const searchKeyword = body.searchKeyword || body.search_keyword || ''
+  const edges = relatedNodes.map((node, index) => {
+    const country = COUNTRY_LOOKUP.get(node.countryCode)
+    const nodeReasons = toArray(node.reasons)
+    const nodeKeywords = toArray(node.sharedKeywords)
+    const nodeEntities = toArray(node.sharedEntities)
+    const relevanceScore = Number(node.relevanceScore)
+
+    return {
+      id: `compare-on-click-edge-${index + 1}`,
+      source: selectedNodeId,
+      target: String(node.id || node.videoId || `related-${index + 1}`),
+      relationType: 'RELATED_COUNTRY_COVERAGE',
+      keywords: nodeKeywords.length ? nodeKeywords : [searchKeyword].filter(Boolean),
+      reasons: nodeReasons.length
+        ? nodeReasons
+        : [`${country?.localLabel || node.countryCode}에서 같은 이슈와 가까운 영상으로 검색된 결과입니다.`],
+      sharedEntities: nodeEntities,
+      sameIssueCluster: node.sameIssueCluster || searchKeyword,
+      weight: Number.isFinite(relevanceScore) && relevanceScore > 0 ? relevanceScore : Math.max(0.58, 0.92 - index * 0.04),
+    }
+  })
+
+  return {
+    selectedVideo: {
+      ...selectedVideo,
+      id: selectedNodeId,
+      videoId: selectedVideo.videoId || selectedVideoId,
+      countryCode:
+        normalizeCountryCode(body.source_country_code || body.sourceCountryCode || selectedVideo.countryCode) || 'KR',
+      nodeType: 'selected',
+    },
+    mainKeywords: [searchKeyword].filter(Boolean),
+    nodes: [
+      {
+        ...selectedVideo,
+        id: selectedNodeId,
+        videoId: selectedVideo.videoId || selectedVideoId,
+        countryCode:
+          normalizeCountryCode(body.source_country_code || body.sourceCountryCode || selectedVideo.countryCode) || 'KR',
+        nodeType: 'selected',
+      },
+      ...relatedNodes,
+    ],
+    edges,
+    connectionReasons: [
+      searchKeyword
+        ? `"${searchKeyword}" 제목 맥락을 기준으로 다른 국가의 관련 영상을 찾았습니다.`
+        : '선택 영상과 다른 국가의 관련 영상을 연결했습니다.',
+    ],
+    countryPerspectives: normalizePerspectiveItems(body.country_perspectives || body.countryPerspectives).length
+      ? normalizePerspectiveItems(body.country_perspectives || body.countryPerspectives)
+      : sections
+          .filter((section) => section.videos.length)
+          .map((section) => ({
+            countryCode: section.countryCode,
+            summary: `${section.countryLocalLabel} 관련 영상 ${section.videos.length}개를 비교 후보로 표시합니다.`,
+          })),
+    sharedKeywords: [searchKeyword].filter(Boolean),
+    sharedEntities: [],
+    clusterInfo: searchKeyword ? { id: `compare-on-click-${selectedNodeId}`, title: searchKeyword } : null,
+  }
+}
+
 export function normalizeComparisonGraph(payload, selectedVideoId = '') {
   const body = extractBody(payload) || {}
+  const compareSections = toArray(body.sections || body.country_sections || body.countrySections)
+
+  if (compareSections.length && !toArray(body.graph?.nodes || body.nodes).length) {
+    return createCompareOnClickGraph(body, selectedVideoId)
+  }
+
   const graph = body.graph || body
   const rawNodes = toArray(graph.nodes)
   const sourceNode = rawNodes.find((node) => {
@@ -580,18 +693,43 @@ export function normalizeComparisonGraph(payload, selectedVideoId = '') {
 
 export async function fetchComparisonGraph({ videoId, accessToken } = {}) {
   const encodedVideoId = encodeURIComponent(videoId || '')
-  const payload = await requestJsonCandidates(
-    [
-      `/api/v1/comparison/videos/${encodedVideoId}/graph`,
-      `/api/v1/comparison/graph/${encodedVideoId}`,
-      `/api/comparison/videos/${encodedVideoId}/graph`,
-      `/kg/videos/${encodedVideoId}/comparison-graph`,
-    ],
-    {
-      accessToken,
-      fallbackErrorMessage: '국가별 비교 그래프를 불러오지 못했습니다.',
-    },
-  )
 
-  return normalizeComparisonGraph(payload, videoId)
+  const detailPayload = await requestJson(`/api/v1/youtube/${encodedVideoId}`, {
+    accessToken,
+    fallbackErrorMessage: '선택한 영상 정보를 불러오지 못했습니다.',
+  })
+  const selectedVideoDetail = extractBody(detailPayload) || { youtubeVideoId: videoId }
+  const comparePayload = await requestJson('/api/videos/compare-on-click', {
+    method: 'POST',
+    query: { limitPerCountry: 3 },
+    body: selectedVideoDetail,
+    accessToken,
+    fallbackErrorMessage: '국가별 비교 영상을 불러오지 못했습니다.',
+  })
+
+  return normalizeComparisonGraph(comparePayload, videoId)
+}
+
+export async function requestComparisonInsight({ selectedVideo, comparedVideo, relationEdge, graphData, accessToken } = {}) {
+  const payload = await requestJson('/api/v1/comparison/llm-difference', {
+    method: 'POST',
+    accessToken,
+    body: {
+      selectedVideo,
+      comparedVideo,
+      relationEdge,
+      mainKeywords: graphData?.mainKeywords || [],
+      sharedKeywords: graphData?.sharedKeywords || [],
+      sharedEntities: graphData?.sharedEntities || [],
+      countryPerspectives: graphData?.countryPerspectives || [],
+    },
+    fallbackErrorMessage: 'LLM 비교 요약을 불러오지 못했습니다.',
+  })
+  const body = extractBody(payload) || {}
+
+  return {
+    summary: body.summary || body.differenceSummary || body.difference_summary || '',
+    points: toArray(body.points || body.keyPoints || body.key_points),
+    recommendationReason: body.recommendationReason || body.recommendation_reason || '',
+  }
 }
