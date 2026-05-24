@@ -296,10 +296,6 @@ function createMockComparisonGraph(videoId, selectedVideoOverride = null) {
   }
 }
 
-function getAnalysisRoute(videoId) {
-  return `#summary/video/${encodeURIComponent(videoId)}`
-}
-
 function goToHashRoute(route) {
   window.location.hash = route.replace(/^#/, '')
 }
@@ -2137,7 +2133,7 @@ function RecommendationVideoCard({ node, countryCode, onClick }) {
   )
 }
 
-function SelectedVideoCard({ video, onClick }) {
+function SelectedVideoCard({ video }) {
   const country = getCountryMeta(video?.countryCode)
 
   return (
@@ -2168,6 +2164,22 @@ function SelectedVideoCard({ video, onClick }) {
       </button>
     </Html>
   )
+}
+
+function createFallbackComparisonInsight({ selectedVideo, comparedVideo, relationEdge }) {
+  const selectedCountry = getCountryMeta(selectedVideo?.countryCode)
+  const comparedCountry = getCountryMeta(comparedVideo?.countryCode)
+  const sharedKeywords = relationEdge?.keywords?.length ? relationEdge.keywords.join(', ') : '트럼프, 대만'
+
+  return {
+    summary: `${selectedCountry.localName} 영상은 "${selectedVideo?.title || '원본 영상'}"의 맥락을 중심으로 이슈를 설명하고, ${comparedCountry.localName} 영상은 "${comparedVideo?.title || '비교 영상'}" 관점에서 같은 이슈를 다룹니다. 두 영상은 ${sharedKeywords} 키워드를 공유하지만, 강조하는 국가적 이해관계와 표현 톤이 다릅니다.`,
+    points: [
+      `${selectedCountry.localName} 영상의 초점: ${selectedVideo?.focusKeywords?.slice(0, 3).join(', ') || '선택 영상의 제목/키워드 맥락'}`,
+      `${comparedCountry.localName} 영상의 초점: ${comparedVideo?.focusKeywords?.slice(0, 3).join(', ') || '비교 영상의 제목/키워드 맥락'}`,
+      relationEdge?.reasons?.[0] || '두 영상은 같은 이슈를 서로 다른 국가 관점에서 설명합니다.',
+    ],
+    recommendationReason: relationEdge?.reasons?.join(' ') || '공유 키워드와 국가별 관점 차이를 기준으로 비교 대상으로 연결했습니다.',
+  }
 }
 
 function WhiteHouseStagePreview({ node }) {
@@ -2340,7 +2352,7 @@ function getCountryVideos(graphData, countryCode) {
         .slice(0, COMPARISON_RECOMMENDATION_LIMIT)
 }
 
-function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
+function ComparisonGraph({ graphData, onCompareVideo }) {
   const [activeCountryCode, setActiveCountryCode] = useState('')
   const [revealedCountryCode, setRevealedCountryCode] = useState('')
   const [visibleNodeCount, setVisibleNodeCount] = useState(0)
@@ -2457,7 +2469,6 @@ function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
         <MovingGroup position={selectedPosition} drift={0} isActive={Boolean(activeCountryCode)}>
           <SelectedVideoCard
             video={selectedVideo}
-            onClick={() => onNodeOpen(selectedVideo.videoId)}
           />
         </MovingGroup>
 
@@ -2584,14 +2595,19 @@ function ComparisonVideoModalCard({ video, title, relationEdge = null, graphData
         <strong>{title}</strong>
       </header>
 
-      <div className="comparison-graph-page__compare-thumb">
+      <button
+        className="comparison-graph-page__compare-thumb"
+        type="button"
+        onClick={() => openYoutubeVideo(video)}
+        aria-label={`${video?.title || title} 유튜브에서 열기`}
+      >
         <YoutubeThumbnail
           src={video?.thumbnailUrl}
           youtubeVideoId={video?.videoId}
           alt={video?.title || title}
           placeholder={<div className="comparison-graph-page__recommendation-placeholder" />}
         />
-      </div>
+      </button>
 
       <div className="comparison-graph-page__compare-copy">
         <strong>{video?.title || '영상 제목 정보 없음'}</strong>
@@ -2657,16 +2673,58 @@ function ComparisonVideoModalCard({ video, title, relationEdge = null, graphData
   )
 }
 
-function ComparisonVideoModal({ graphData, comparedVideo, onClose }) {
+function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }) {
+  const [comparisonInsight, setComparisonInsight] = useState(null)
+
+  const relationEdge = findComparisonEdge(graphData, comparedVideo)
+  const fallbackInsight = useMemo(() => (
+    graphData?.selectedVideo && comparedVideo
+      ? createFallbackComparisonInsight({
+          selectedVideo: graphData.selectedVideo,
+          comparedVideo,
+          relationEdge,
+        })
+      : null
+  ), [comparedVideo, graphData, relationEdge])
+  const displayedInsight = comparisonInsight || fallbackInsight
+
+  useEffect(() => {
+    if (!graphData?.selectedVideo || !comparedVideo) {
+      return undefined
+    }
+
+    let isCancelled = false
+
+    if (graphData.isMock) {
+      return undefined
+    }
+
+    requestComparisonInsight({
+      selectedVideo: graphData.selectedVideo,
+      comparedVideo,
+      relationEdge,
+      graphData,
+      accessToken,
+    })
+      .then((nextInsight) => {
+        if (!isCancelled && (nextInsight.summary || nextInsight.points.length || nextInsight.recommendationReason)) {
+          setComparisonInsight(nextInsight)
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setComparisonInsight(null)
+        }
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [accessToken, comparedVideo, graphData, relationEdge])
+
   if (!graphData?.selectedVideo || !comparedVideo) {
     return null
   }
-
-  const relationEdge = findComparisonEdge(graphData, comparedVideo)
-  const differenceText =
-    relationEdge?.reasons?.[0] ||
-    relationEdge?.relationType ||
-    '두 영상이 같은 이슈를 서로 다른 국가 관점에서 다루고 있습니다.'
 
   return createPortal(
     <div className="comparison-graph-page__compare-modal" role="presentation" onClick={onClose}>
@@ -2707,8 +2765,24 @@ function ComparisonVideoModal({ graphData, comparedVideo, onClose }) {
         </div>
 
         <section className="comparison-graph-page__compare-difference">
-          <h3>핵심 차이</h3>
-          <p>{differenceText}</p>
+          <div className="comparison-graph-page__compare-difference-head">
+            <h3>LLM 핵심 차이 요약</h3>
+            {comparisonInsight ? <span>LLM 응답</span> : <span>기본 요약</span>}
+          </div>
+          <p>{displayedInsight?.summary || '두 영상이 같은 이슈를 서로 다른 국가 관점에서 다루고 있습니다.'}</p>
+          {displayedInsight?.points?.length ? (
+            <ul>
+              {displayedInsight.points.slice(0, 4).map((point, index) => (
+                <li key={`comparison-point-${index}`}>{point}</li>
+              ))}
+            </ul>
+          ) : null}
+          {displayedInsight?.recommendationReason ? (
+            <div className="comparison-graph-page__compare-reason">
+              <strong>비교 대상으로 연결된 이유</strong>
+              <p>{displayedInsight.recommendationReason}</p>
+            </div>
+          ) : null}
         </section>
       </section>
     </div>,
@@ -2782,14 +2856,6 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
   const selectedVideo = graphData?.selectedVideo
   const country = getCountryMeta(selectedVideo?.countryCode)
 
-  const handleOpenNode = (nextVideoId) => {
-    if (!nextVideoId) {
-      return
-    }
-
-    goToHashRoute(getAnalysisRoute(nextVideoId))
-  }
-
   const handleOpenComparisonModal = (node) => {
     if (!node) {
       return
@@ -2846,7 +2912,6 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
             <section className="comparison-graph-page__workspace">
               <ComparisonGraph
                 graphData={graphData}
-                onNodeOpen={handleOpenNode}
                 onCompareVideo={handleOpenComparisonModal}
               />
             </section>
@@ -2856,6 +2921,7 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
         <ComparisonVideoModal
           graphData={graphData}
           comparedVideo={comparisonModalVideo}
+          accessToken={accessToken}
           onClose={() => setComparisonModalVideo(null)}
         />
       </section>
