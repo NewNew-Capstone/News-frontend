@@ -504,7 +504,19 @@ function normalizeGraphEdge(edge, index = 0) {
 
 function normalizePerspectiveItems(value) {
   if (Array.isArray(value)) {
-    return value.filter(Boolean)
+    return value.filter(Boolean).map((item) => {
+      if (typeof item !== 'object') {
+        return item
+      }
+
+      return {
+        ...item,
+        countryCode: normalizeCountryCode(
+          pickFirst(item, ['country_code', 'countryCode', 'country', 'code'], item.countryCode),
+        ),
+        topKeywords: toArray(item.top_keywords || item.topKeywords),
+      }
+    })
   }
 
   if (!value || typeof value !== 'object') {
@@ -519,10 +531,28 @@ function normalizePerspectiveItems(value) {
 
 export function normalizeComparisonGraph(payload, selectedVideoId = '') {
   const body = extractBody(payload) || {}
+  const graph = body.graph || body
+  const rawNodes = toArray(graph.nodes)
+  const sourceNode = rawNodes.find((node) => {
+    const nodeType = String(pickFirst(node, ['node_type', 'nodeType'], '')).toLowerCase()
+    const videoId = normalizeVideoId(node)
+
+    return (
+      nodeType === 'source' ||
+      nodeType === 'selected' ||
+      videoId === selectedVideoId ||
+      node.id === `video:${selectedVideoId}`
+    )
+  })
   const selectedVideo = normalizeGraphNode(
-    body.selected_video || body.selectedVideo || body.video || { video_id: selectedVideoId, node_type: 'selected' },
+    body.selected_video ||
+      body.selectedVideo ||
+      body.video ||
+      graph.selected_video ||
+      graph.selectedVideo ||
+      sourceNode ||
+      { video_id: body.selectedVideoId || selectedVideoId, node_type: 'selected' },
   )
-  const rawNodes = toArray(body.nodes)
   const normalizedNodes = rawNodes.map((node, index) => normalizeGraphNode(node, index))
   const hasSelectedNode = normalizedNodes.some(
     (node) => node.id === selectedVideo.id || node.videoId === selectedVideo.videoId,
@@ -537,21 +567,26 @@ export function normalizeComparisonGraph(payload, selectedVideoId = '') {
 
   return {
     selectedVideo: { ...selectedVideo, nodeType: 'selected' },
-    mainKeywords: toArray(body.main_keywords || body.mainKeywords || body.keywords),
+    mainKeywords: toArray(graph.main_keywords || graph.mainKeywords || graph.keywords || body.main_keywords || body.mainKeywords || body.keywords),
     nodes,
-    edges: toArray(body.edges).map((edge, index) => normalizeGraphEdge(edge, index)),
-    connectionReasons: toArray(body.connection_reasons || body.connectionReasons),
-    countryPerspectives: normalizePerspectiveItems(body.country_perspectives || body.countryPerspectives),
-    sharedKeywords: toArray(body.shared_keywords || body.sharedKeywords),
-    sharedEntities: toArray(body.shared_entities || body.sharedEntities),
-    clusterInfo: body.cluster_info || body.clusterInfo || body.same_issue_cluster || body.sameIssueCluster || null,
+    edges: toArray(graph.edges).map((edge, index) => normalizeGraphEdge(edge, index)),
+    connectionReasons: toArray(graph.connection_reasons || graph.connectionReasons || body.connection_reasons || body.connectionReasons),
+    countryPerspectives: normalizePerspectiveItems(graph.country_perspectives || graph.countryPerspectives || body.country_perspectives || body.countryPerspectives),
+    sharedKeywords: toArray(graph.shared_keywords || graph.sharedKeywords || body.shared_keywords || body.sharedKeywords),
+    sharedEntities: toArray(graph.shared_entities || graph.sharedEntities || body.shared_entities || body.sharedEntities),
+    clusterInfo: graph.cluster_info || graph.clusterInfo || graph.same_issue_cluster || graph.sameIssueCluster || body.cluster_info || body.clusterInfo || body.same_issue_cluster || body.sameIssueCluster || null,
   }
 }
 
 export async function fetchComparisonGraph({ videoId, accessToken } = {}) {
   const encodedVideoId = encodeURIComponent(videoId || '')
   const payload = await requestJsonCandidates(
-    [`/api/comparison/videos/${encodedVideoId}/graph`, `/kg/videos/${encodedVideoId}/comparison-graph`],
+    [
+      `/api/v1/comparison/videos/${encodedVideoId}/graph`,
+      `/api/v1/comparison/graph/${encodedVideoId}`,
+      `/api/comparison/videos/${encodedVideoId}/graph`,
+      `/kg/videos/${encodedVideoId}/comparison-graph`,
+    ],
     {
       accessToken,
       fallbackErrorMessage: '국가별 비교 그래프를 불러오지 못했습니다.',

@@ -196,6 +196,7 @@ export async function fetchIssueSearchResults({ searchKeyword }, accessToken) {
     accessToken: token,
     query: {
       searchKeyword: trimmedKeyword,
+      autoCluster: true,
     },
     fallbackErrorMessage: '국가별 이슈 영상을 불러오지 못했습니다.',
   })

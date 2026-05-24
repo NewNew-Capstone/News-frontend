@@ -1,6 +1,6 @@
-import { Environment, Html, Text } from '@react-three/drei'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Environment, Html, Text, useGLTF } from '@react-three/drei'
+import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as THREE from 'three'
 import Navbar from '../components/Navbar'
@@ -22,6 +22,68 @@ const countryDisplay = {
 
 const COMPARISON_COUNTRY_CODES = ['KR', 'US', 'CN']
 const COMPARISON_SELECTED_VIDEO_KEY = 'comparison-selected-video'
+const USE_COMPARISON_MOCK_DATA = false
+const COMPARISON_RECOMMENDATION_LIMIT = 3
+const COUNTRY_MODEL_CONFIGS = {
+  US: {
+    url: '/models/us-presenter.glb',
+    bounds: {
+      min: [-0.6408320069313049, -0.9506081342697144, -0.2756750285625458],
+      max: [0.6405829787254333, 0.9483711123466492, 0.2744660675525665],
+    },
+    orientation: [0, 7.2, 0],
+    inactiveHeight: 3.04,
+    activeHeight: 3.84,
+    inactiveBaseY: -1.38,
+    activeBaseY: -1.74,
+  },
+  CN: {
+    url: '/models/china-presenter.glb',
+    bounds: {
+      min: [-0.4926140010356903, -0.9506081342697144, -0.21054603159427643],
+      max: [0.48972299695014954, 0.948241114616394, 0.209026038646698],
+    },
+    orientation: [0, 7.2, 0],
+    inactiveHeight: 3.04,
+    activeHeight: 3.84,
+    inactiveBaseY: -1.38,
+    activeBaseY: -1.74,
+  },
+}
+const COUNTRY_MODEL_STYLE = {
+  US: {
+    primary: '#3182f6',
+    secondary: '#77d9d5',
+    glow: '#8fb8ff',
+  },
+  CN: {
+    primary: '#de2910',
+    secondary: '#ffde00',
+    glow: '#fb7185',
+  },
+}
+const COMPARISON_BACKGROUND_MODEL_CONFIG = {
+  url: '/models/china-congress-background.glb',
+  bounds: {
+    min: [-0.9508360028266907, -0.40441015362739563, -0.9499321579933167],
+    max: [0.9489399790763855, 0.40192410349845886, 0.9488220810890198],
+  },
+  orientation: [0, 0, 0],
+  position: [0, -1.94, -2.72],
+  targetWidth: 8.4,
+  opacity: 0.14,
+}
+const WHITE_HOUSE_RECOMMENDATION_MODEL_CONFIG = {
+  url: '/models/us-white-house-stage.glb',
+  bounds: {
+    min: [-0.950652003288269, -0.3757970929145813, -0.6471550464630127],
+    max: [0.9488509893417358, 0.3737460672855377, 0.6441850662231445],
+  },
+  orientation: [0, 0, 0],
+  position: [0, -0.28, -0.08],
+  targetWidth: 0.86,
+  opacity: 0.48,
+}
 const MAX_COMPARISON_EXPRESSION_KEYWORDS = 6
 
 function getSelectedCenteredCountryCodes(selectedCountryCode = 'KR') {
@@ -573,6 +635,31 @@ function normalizeSections(sections = []) {
   }))
 }
 
+function createMockComparisonHomeSections() {
+  const mockGraph = createMockComparisonGraph('mock-home-selected-video')
+  const nodesByCountry = new Map(COMPARISON_COUNTRIES.map((country) => [country.code, []]))
+
+  mockGraph.nodes
+    .filter((node) => node.videoId !== mockGraph.selectedVideo.videoId)
+    .forEach((node) => {
+      const countryCode = COMPARISON_COUNTRY_CODES.includes(node.countryCode) ? node.countryCode : 'KR'
+      nodesByCountry.get(countryCode)?.push({
+        ...node,
+        channelName: node.channelName || `${getCountryMeta(countryCode).name} News`,
+        viewCount: node.viewCount ?? 43808,
+        publishedAt: node.publishedAt || '2026-05-05T00:00:00Z',
+      })
+    })
+
+  return COMPARISON_COUNTRIES.map((country) => ({
+    ...country,
+    countryCode: country.code,
+    countryName: country.label,
+    countryLocalLabel: country.localLabel,
+    videos: (nodesByCountry.get(country.code) || []).slice(0, 5),
+  }))
+}
+
 function hasSectionVideos(sections = []) {
   return sections.some((section) => Array.isArray(section?.videos) && section.videos.length)
 }
@@ -603,6 +690,13 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
       setErrorMessage('')
 
       try {
+        if (USE_COMPARISON_MOCK_DATA) {
+          setIssueKeywords(fallbackKeywords)
+          setSections(createMockComparisonHomeSections())
+          setErrorMessage('테스트용 mock 국가별 추천 영상을 표시합니다.')
+          return
+        }
+
         if (!isLoggedIn) {
           setIssueKeywords(fallbackKeywords)
           setSections(normalizeSections([]))
@@ -677,6 +771,11 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
     setResultTitle(`"${trimmedKeyword}" 국가별 검색 결과`)
 
     try {
+      if (USE_COMPARISON_MOCK_DATA) {
+        setSections(createMockComparisonHomeSections())
+        return
+      }
+
       const searchData = await searchComparisonVideos({ keyword: trimmedKeyword, limit: 5, accessToken })
       setSections(normalizeSections(searchData.sections))
     } catch {
@@ -1615,6 +1714,212 @@ function CurvedSphereLabel({ label, subLabel = '', selected = false, flagCode = 
   )
 }
 
+function degreesToRadians(degrees) {
+  return (degrees * Math.PI) / 180
+}
+
+function getModelBoundsMetrics(bounds) {
+  const size = [
+    bounds.max[0] - bounds.min[0],
+    bounds.max[1] - bounds.min[1],
+    bounds.max[2] - bounds.min[2],
+  ]
+  const center = [
+    (bounds.min[0] + bounds.max[0]) / 2,
+    (bounds.min[1] + bounds.max[1]) / 2,
+    (bounds.min[2] + bounds.max[2]) / 2,
+  ]
+
+  return { size, center }
+}
+
+function CountryModelNode({ config, active = false }) {
+  const { scene } = useGLTF(config.url)
+  const model = useMemo(() => {
+    const clonedScene = scene.clone(true)
+
+    clonedScene.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true
+        child.receiveShadow = true
+      }
+    })
+
+    return clonedScene
+  }, [scene])
+  const { size, center } = useMemo(() => getModelBoundsMetrics(config.bounds), [config.bounds])
+  const targetHeight = active ? config.activeHeight : config.inactiveHeight
+  const modelScale = targetHeight / Math.max(size[1], 0.001)
+  const baseY = active ? config.activeBaseY : config.inactiveBaseY
+  const orientation = config.orientation.map((degrees) => degreesToRadians(degrees))
+
+  return (
+    <group rotation={orientation} position={[0, baseY, 0]} scale={[modelScale, modelScale, modelScale]}>
+      <primitive object={model} position={[-center[0], -config.bounds.min[1], -center[2]]} />
+    </group>
+  )
+}
+
+function BackgroundSceneModel() {
+  const { scene } = useGLTF(COMPARISON_BACKGROUND_MODEL_CONFIG.url)
+  const model = useMemo(() => {
+    const clonedScene = scene.clone(true)
+
+    clonedScene.traverse((child) => {
+      if (!child.isMesh) {
+        return
+      }
+
+      child.castShadow = false
+      child.receiveShadow = false
+      child.renderOrder = -1
+
+      if (!child.material) {
+        return
+      }
+
+      const materials = Array.isArray(child.material) ? child.material : [child.material]
+      const fadedMaterials = materials.map((material) => {
+        const clonedMaterial = material.clone()
+        clonedMaterial.transparent = true
+        clonedMaterial.opacity = COMPARISON_BACKGROUND_MODEL_CONFIG.opacity
+        clonedMaterial.depthWrite = false
+        clonedMaterial.depthTest = true
+
+        if ('roughness' in clonedMaterial) {
+          clonedMaterial.roughness = Math.min(0.92, clonedMaterial.roughness + 0.18)
+        }
+
+        return clonedMaterial
+      })
+
+      child.material = Array.isArray(child.material) ? fadedMaterials : fadedMaterials[0]
+    })
+
+    return clonedScene
+  }, [scene])
+  const { size, center } = useMemo(
+    () => getModelBoundsMetrics(COMPARISON_BACKGROUND_MODEL_CONFIG.bounds),
+    [],
+  )
+  const largestHorizontalSize = Math.max(size[0], size[2], 0.001)
+  const modelScale = COMPARISON_BACKGROUND_MODEL_CONFIG.targetWidth / largestHorizontalSize
+  const orientation = COMPARISON_BACKGROUND_MODEL_CONFIG.orientation.map((degrees) => degreesToRadians(degrees))
+
+  return (
+    <group
+      position={COMPARISON_BACKGROUND_MODEL_CONFIG.position}
+      rotation={orientation}
+      scale={[modelScale, modelScale, modelScale]}
+    >
+      <primitive
+        object={model}
+        position={[
+          -center[0],
+          -COMPARISON_BACKGROUND_MODEL_CONFIG.bounds.min[1],
+          -center[2],
+        ]}
+      />
+    </group>
+  )
+}
+
+function WhiteHouseRecommendationModel() {
+  const { scene } = useGLTF(WHITE_HOUSE_RECOMMENDATION_MODEL_CONFIG.url)
+  const model = useMemo(() => {
+    const clonedScene = scene.clone(true)
+
+    clonedScene.traverse((child) => {
+      if (!child.isMesh) {
+        return
+      }
+
+      child.castShadow = false
+      child.receiveShadow = false
+
+      if (!child.material) {
+        return
+      }
+
+      const materials = Array.isArray(child.material) ? child.material : [child.material]
+      const softenedMaterials = materials.map((material) => {
+        const clonedMaterial = material.clone()
+        clonedMaterial.transparent = true
+        clonedMaterial.opacity = WHITE_HOUSE_RECOMMENDATION_MODEL_CONFIG.opacity
+        clonedMaterial.depthWrite = false
+
+        if ('roughness' in clonedMaterial) {
+          clonedMaterial.roughness = Math.min(0.86, clonedMaterial.roughness + 0.12)
+        }
+
+        return clonedMaterial
+      })
+
+      child.material = Array.isArray(child.material) ? softenedMaterials : softenedMaterials[0]
+    })
+
+    return clonedScene
+  }, [scene])
+  const { size, center } = useMemo(
+    () => getModelBoundsMetrics(WHITE_HOUSE_RECOMMENDATION_MODEL_CONFIG.bounds),
+    [],
+  )
+  const modelScale = WHITE_HOUSE_RECOMMENDATION_MODEL_CONFIG.targetWidth / Math.max(size[0], 0.001)
+  const orientation = WHITE_HOUSE_RECOMMENDATION_MODEL_CONFIG.orientation.map((degrees) => degreesToRadians(degrees))
+
+  return (
+    <group
+      position={WHITE_HOUSE_RECOMMENDATION_MODEL_CONFIG.position}
+      rotation={orientation}
+      scale={[modelScale, modelScale, modelScale]}
+    >
+      <primitive
+        object={model}
+        position={[
+          -center[0],
+          -WHITE_HOUSE_RECOMMENDATION_MODEL_CONFIG.bounds.min[1],
+          -center[2],
+        ]}
+      />
+    </group>
+  )
+}
+
+function ModelNodeLabel({ label, subLabel = '', tone = 'us', active = false }) {
+  return (
+    <Html
+      center
+      distanceFactor={5}
+      position={[0, active ? -1.88 : -1.58, 0]}
+      className={`comparison-graph-page__model-node-label comparison-graph-page__model-node-label--${tone} ${active ? 'comparison-graph-page__model-node-label--active' : ''}`}
+    >
+      <strong>{label}</strong>
+      {subLabel ? <span>{subLabel}</span> : null}
+    </Html>
+  )
+}
+
+function ModelNodeStage({ countryCode = 'US', active = false }) {
+  const style = COUNTRY_MODEL_STYLE[countryCode] || COUNTRY_MODEL_STYLE.US
+
+  return (
+    <group position={[0, active ? -1.76 : -1.42, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh>
+        <torusGeometry args={[active ? 0.94 : 0.74, 0.018, 14, 108]} />
+        <meshBasicMaterial color={style.primary} transparent opacity={active ? 0.48 : 0.36} />
+      </mesh>
+      <mesh scale={[1.28, 1.28, 1.28]}>
+        <torusGeometry args={[active ? 0.94 : 0.74, 0.01, 12, 108]} />
+        <meshBasicMaterial color={style.secondary} transparent opacity={active ? 0.26 : 0.18} />
+      </mesh>
+      <mesh position={[0, 0, -0.015]}>
+        <circleGeometry args={[active ? 0.66 : 0.52, 72]} />
+        <meshBasicMaterial color={style.glow} transparent opacity={active ? 0.13 : 0.09} />
+      </mesh>
+    </group>
+  )
+}
+
 function SpatialNode({
   label,
   subLabel = '',
@@ -1634,6 +1939,8 @@ function SpatialNode({
   const labelUpRef = useRef(new THREE.Vector3())
   const labelMatrixRef = useRef(new THREE.Matrix4())
   const labelQuaternionRef = useRef(new THREE.Quaternion())
+  const modelRotationRef = useRef({ x: 0, y: 0 })
+  const modelDragRef = useRef(null)
   const countryTexture = useMemo(
     () => (!videoNode && COMPARISON_COUNTRY_CODES.includes(flagCode) ? createCountrySphereTexture(flagCode) : null),
     [flagCode, videoNode],
@@ -1647,6 +1954,7 @@ function SpatialNode({
           ? '#3182f6'
           : '#8fb8ff'
   const emissive = tone === 'cn' ? '#5a120e' : tone === 'us' ? '#0b2b6c' : '#1b6ee8'
+  const modelConfig = !videoNode ? COUNTRY_MODEL_CONFIGS[flagCode] : null
 
   useFrame(({ clock }, delta) => {
     if (!meshRef.current) {
@@ -1656,9 +1964,18 @@ function SpatialNode({
     const elapsed = clock.getElapsedTime()
     const pulse = Math.sin(elapsed * (selected ? 1.45 : 1.15)) * (selected ? 0.032 : 0.018)
     const shimmer = Math.sin(elapsed * 2.3 + size) * (selected ? 0.01 : 0.006)
+    const rotationSpeed = modelConfig ? (selected ? 0.86 : 0.64) : selected ? 0.22 : 0.16
     meshRef.current.scale.setScalar(size + pulse + shimmer)
-    meshRef.current.rotation.y += delta * (selected ? 0.22 : 0.16)
-    meshRef.current.rotation.x = Math.sin(elapsed * 0.46 + size) * 0.028
+    if (modelConfig) {
+      if (!modelDragRef.current) {
+        modelRotationRef.current.y += delta * rotationSpeed
+      }
+      meshRef.current.rotation.y = modelRotationRef.current.y
+      meshRef.current.rotation.x = modelRotationRef.current.x + Math.sin(elapsed * 0.46 + size) * 0.018
+    } else {
+      meshRef.current.rotation.y += delta * rotationSpeed
+      meshRef.current.rotation.x = Math.sin(elapsed * 0.46 + size) * 0.028
+    }
     if (labelRef.current) {
       meshRef.current.getWorldPosition(sphereCenterRef.current)
       cameraDirectionRef.current.subVectors(camera.position, sphereCenterRef.current).normalize()
@@ -1674,6 +1991,74 @@ function SpatialNode({
       labelRef.current.quaternion.copy(labelQuaternionRef.current)
     }
   })
+
+  if (modelConfig) {
+    const handleModelPointerDown = (event) => {
+      event.stopPropagation()
+      modelDragRef.current = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        rotationX: modelRotationRef.current.x,
+        rotationY: modelRotationRef.current.y,
+        moved: false,
+      }
+      event.target.setPointerCapture?.(event.pointerId)
+    }
+    const handleModelPointerMove = (event) => {
+      const dragState = modelDragRef.current
+
+      if (!dragState || dragState.pointerId !== event.pointerId) {
+        return
+      }
+
+      event.stopPropagation()
+      const deltaX = event.clientX - dragState.x
+      const deltaY = event.clientY - dragState.y
+
+      if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+        dragState.moved = true
+      }
+
+      modelRotationRef.current.y = dragState.rotationY + deltaX * 0.012
+      modelRotationRef.current.x = THREE.MathUtils.clamp(
+        dragState.rotationX + deltaY * 0.01,
+        -0.58,
+        0.58,
+      )
+    }
+    const handleModelPointerUp = (event) => {
+      const dragState = modelDragRef.current
+
+      if (!dragState || dragState.pointerId !== event.pointerId) {
+        return
+      }
+
+      event.stopPropagation()
+      modelDragRef.current = null
+      event.target.releasePointerCapture?.(event.pointerId)
+
+      if (!dragState.moved) {
+        onClick?.(event)
+      }
+    }
+
+    return (
+      <group
+        ref={meshRef}
+        onPointerDown={handleModelPointerDown}
+        onPointerMove={handleModelPointerMove}
+        onPointerUp={handleModelPointerUp}
+        onPointerCancel={handleModelPointerUp}
+      >
+        <ModelNodeStage countryCode={flagCode} active={selected} />
+        <Suspense fallback={null}>
+          <CountryModelNode config={modelConfig} active={selected} />
+        </Suspense>
+        <ModelNodeLabel label={label} subLabel={subLabel} tone={tone} active={selected} />
+      </group>
+    )
+  }
 
   return (
     <mesh ref={meshRef} onClick={onClick}>
@@ -1698,8 +2083,21 @@ function SpatialNode({
   )
 }
 
+Object.values(COUNTRY_MODEL_CONFIGS).forEach((config) => {
+  useGLTF.preload(config.url)
+})
+useGLTF.preload(COMPARISON_BACKGROUND_MODEL_CONFIG.url)
+useGLTF.preload(WHITE_HOUSE_RECOMMENDATION_MODEL_CONFIG.url)
+
 function RecommendationVideoCard({ node, countryCode, onClick }) {
   const country = getCountryMeta(countryCode || node?.countryCode)
+  const isWhiteHouseStage = countryCode === 'US'
+
+  if (isWhiteHouseStage) {
+    return (
+      <WhiteHouseRecommendationStage node={node} onClick={onClick} />
+    )
+  }
 
   return (
     <Html
@@ -1709,7 +2107,7 @@ function RecommendationVideoCard({ node, countryCode, onClick }) {
       className="comparison-graph-page__recommendation-card-wrap"
     >
       <button
-        className="comparison-graph-page__recommendation-card"
+        className={`comparison-graph-page__recommendation-card comparison-graph-page__recommendation-card--${country.tone}`}
         type="button"
         onClick={() => onClick(node)}
       >
@@ -1731,13 +2129,174 @@ function RecommendationVideoCard({ node, countryCode, onClick }) {
   )
 }
 
+function WhiteHouseStagePreview({ node }) {
+  const thumbnailSource = getVideoThumbnailSource(node) || mockComparisonThumbnail
+  const texture = useLoader(THREE.TextureLoader, thumbnailSource, (loader) => {
+    loader.setCrossOrigin('anonymous')
+  })
+  const displayTexture = useMemo(() => {
+    const nextTexture = texture.clone()
+    nextTexture.colorSpace = THREE.SRGBColorSpace
+    nextTexture.anisotropy = 8
+    nextTexture.needsUpdate = true
+
+    return nextTexture
+  }, [texture])
+  const title = String(node?.title || 'Related news video')
+
+  useEffect(() => {
+    return () => {
+      displayTexture.dispose()
+    }
+  }, [displayTexture])
+
+  return (
+    <group position={[0, 0.34, 0.44]}>
+      <mesh>
+        <planeGeometry args={[0.82, 0.46]} />
+        <meshBasicMaterial
+          map={displayTexture}
+          toneMapped={false}
+          transparent
+          opacity={0.98}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <Text
+        position={[0, -0.31, 0.018]}
+        fontSize={0.075}
+        maxWidth={0.86}
+        textAlign="center"
+        anchorX="center"
+        anchorY="top"
+        color="#182033"
+        fontWeight={950}
+        outlineWidth={0.018}
+        outlineColor="rgba(255, 255, 255, 0.94)"
+      >
+        {title}
+      </Text>
+    </group>
+  )
+}
+
+function WhiteHouseRecommendationStage({ node, onClick }) {
+  const stageRef = useRef(null)
+  const rotationRef = useRef({ x: 0, y: 0 })
+  const dragRef = useRef(null)
+
+  useFrame(() => {
+    if (!stageRef.current) {
+      return
+    }
+
+    stageRef.current.rotation.x = rotationRef.current.x
+    stageRef.current.rotation.y = rotationRef.current.y
+  })
+
+  const beginDrag = (pointerId, clientX, clientY, source = 'stage') => {
+    dragRef.current = {
+      pointerId,
+      source,
+      x: clientX,
+      y: clientY,
+      rotationX: rotationRef.current.x,
+      rotationY: rotationRef.current.y,
+      moved: false,
+    }
+  }
+
+  const updateDrag = (pointerId, clientX, clientY) => {
+    const dragState = dragRef.current
+
+    if (!dragState || dragState.pointerId !== pointerId) {
+      return
+    }
+
+    const deltaX = clientX - dragState.x
+    const deltaY = clientY - dragState.y
+
+    if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+      dragState.moved = true
+    }
+
+    rotationRef.current.y = dragState.rotationY + deltaX * 0.012
+    rotationRef.current.x = THREE.MathUtils.clamp(
+      dragState.rotationX + deltaY * 0.01,
+      -0.52,
+      0.52,
+    )
+  }
+
+  const endDrag = (pointerId) => {
+    const dragState = dragRef.current
+
+    if (!dragState || dragState.pointerId !== pointerId) {
+      return null
+    }
+
+    dragRef.current = null
+
+    return dragState
+  }
+
+  const handleStagePointerDown = (event) => {
+    event.stopPropagation()
+    beginDrag(event.pointerId, event.clientX, event.clientY)
+    event.target.setPointerCapture?.(event.pointerId)
+  }
+
+  const handleStagePointerMove = (event) => {
+    if (!dragRef.current) {
+      return
+    }
+
+    event.stopPropagation()
+    updateDrag(event.pointerId, event.clientX, event.clientY)
+  }
+
+  const handleStagePointerUp = (event) => {
+    const dragState = endDrag(event.pointerId)
+
+    if (!dragState) {
+      return
+    }
+
+    event.stopPropagation()
+    event.target.releasePointerCapture?.(event.pointerId)
+
+    if (!dragState.moved) {
+      onClick(node)
+    }
+  }
+
+  return (
+    <group
+      ref={stageRef}
+      onPointerDown={handleStagePointerDown}
+      onPointerMove={handleStagePointerMove}
+      onPointerUp={handleStagePointerUp}
+      onPointerCancel={handleStagePointerUp}
+    >
+      <Suspense fallback={null}>
+        <WhiteHouseRecommendationModel />
+      </Suspense>
+      <WhiteHouseStagePreview node={node} />
+    </group>
+  )
+}
+
 function getCountryVideos(graphData, countryCode) {
   const selectedVideoId = graphData.selectedVideo.videoId
   const videos = graphData.nodes.filter(
     (node) => node.countryCode === countryCode && node.videoId !== selectedVideoId,
   )
 
-  return videos.length ? videos : graphData.nodes.filter((node) => node.videoId !== selectedVideoId).slice(0, 3)
+  return videos.length
+    ? videos.slice(0, COMPARISON_RECOMMENDATION_LIMIT)
+    : graphData.nodes
+        .filter((node) => node.videoId !== selectedVideoId)
+        .slice(0, COMPARISON_RECOMMENDATION_LIMIT)
 }
 
 function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
@@ -1748,7 +2307,7 @@ function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
   const selectedCountryCode = selectedVideo?.countryCode || 'KR'
   const [leftCountryCode, , rightCountryCode] = getSelectedCenteredCountryCodes(selectedCountryCode)
   const sideCountryCodes = [leftCountryCode, rightCountryCode]
-  const activeCountryVideos = revealedCountryCode ? getCountryVideos(graphData, revealedCountryCode).slice(0, 4) : []
+  const activeCountryVideos = revealedCountryCode ? getCountryVideos(graphData, revealedCountryCode) : []
   const visibleCountryVideos = activeCountryVideos.slice(0, visibleNodeCount)
   const selectedPosition = [0, 0.82, 0.36]
   const leftCountryPosition = activeCountryCode === leftCountryCode ? [-1.2, -0.1, -0.72] : [-1.65, -0.72, 0.24]
@@ -1759,12 +2318,18 @@ function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
   }
   const activeCountryPosition = sideCountryPositions[activeCountryCode] || selectedPosition
   const videoAnchorSide = revealedCountryCode === rightCountryCode ? 1 : -1
-  const videoAnchors = [
-    [videoAnchorSide * 1.05, 0.92],
-    [videoAnchorSide * 2.28, 0.92],
-    [videoAnchorSide * 1.05, -0.92],
-    [videoAnchorSide * 2.28, -0.92],
-  ]
+  const videoAnchors =
+    revealedCountryCode === 'US'
+      ? [
+          [videoAnchorSide * 1.86, 1.02],
+          [videoAnchorSide * 0.48, 1.08],
+          [videoAnchorSide * 1.82, -0.74],
+        ]
+      : [
+          [videoAnchorSide * 1.05, 0.92],
+          [videoAnchorSide * 2.28, 0.92],
+          [videoAnchorSide * 1.05, -0.92],
+        ]
   const videoPositionRefs = useMemo(
     () => visibleCountryVideos.map(() => new THREE.Vector3(...activeCountryPosition)),
     [activeCountryPosition, visibleCountryVideos],
@@ -1787,9 +2352,9 @@ function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
       setRevealedCountryCode(activeCountryCode)
       revealInterval = window.setInterval(() => {
         setVisibleNodeCount((currentCount) => {
-          const nextCount = Math.min(currentCount + 1, 4)
+          const nextCount = Math.min(currentCount + 1, COMPARISON_RECOMMENDATION_LIMIT)
 
-          if (nextCount >= 4 && revealInterval) {
+          if (nextCount >= COMPARISON_RECOMMENDATION_LIMIT && revealInterval) {
             window.clearInterval(revealInterval)
           }
 
@@ -1819,6 +2384,9 @@ function ComparisonGraph({ graphData, onNodeOpen, onCompareVideo }) {
         <pointLight color="#8fb8ff" intensity={8} position={[-3.8, 0.6, 2.8]} />
         <pointLight color="#ffffff" intensity={4} position={[3.2, -1.8, 3.2]} />
         <CameraRig activeCountryCode={activeCountryCode} activePosition={activeCountryPosition} />
+        <Suspense fallback={null}>
+          <BackgroundSceneModel />
+        </Suspense>
         <SpatialPointCloud />
         <ClusterFocusRings
           activeCountryCode={activeCountryCode}
@@ -2106,6 +2674,12 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
       const cachedSelectedVideo = readCachedSelectedComparisonVideo(videoId)
 
       try {
+        if (USE_COMPARISON_MOCK_DATA) {
+          setGraphData(createMockComparisonGraph(videoId, cachedSelectedVideo))
+          setErrorMessage('테스트용 mock 비교 그래프를 표시합니다.')
+          return
+        }
+
         const nextGraphData = await fetchComparisonGraph({ videoId, accessToken })
 
         if (!isCancelled) {
