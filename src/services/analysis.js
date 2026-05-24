@@ -359,7 +359,7 @@ export async function startVideoAnalysis(youtubeId, accessToken = getAccessToken
   }
 
   const payload = await requestJson(
-    `/api/v1/analysis/analyze/${encodeURIComponent(normalizedYoutubeId)}`,
+    `/api/v1/analysis/analyze/${encodeURIComponent(normalizedYoutubeId)}?clustering=true`,
     {
       method: 'POST',
       accessToken,
