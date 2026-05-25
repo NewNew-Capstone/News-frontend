@@ -1270,7 +1270,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
         />
 
         <section className="video-summary-detail-page__intro">
-          <h1>영상을 더 깊게 읽는 편향 분석 리포트</h1>
+          <h1>영상의 관점을 비교해 읽는 분석 리포트</h1>
         </section>
 
         <section className="video-summary-detail-page__panel">
@@ -2102,13 +2102,13 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
               <div className="video-summary-detail-page__analysis-badge">
                 <AnalysisIcon />
-                <span id="video-analysis-title">편향 분석 시작</span>
+                <span id="video-analysis-title">관점 분석 시작</span>
               </div>
 
               <p className="video-summary-detail-page__analysis-message">
-                이 영상을 분석해서
+                이 영상의 표현과 관점 흐름을
                 <br />
-                편향 요약 리포트를 만들어볼까요?
+                확인해볼까요?
               </p>
 
               <div className="video-summary-detail-page__analysis-actions">
