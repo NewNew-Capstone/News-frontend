@@ -189,6 +189,12 @@ function normalizeKeyword(keyword) {
   }
 }
 
+function isEmotionKeyword(keyword) {
+  return String(keyword?.keywordType || keyword?.keyword_type || '')
+    .trim()
+    .toUpperCase() === 'EMOTION'
+}
+
 function normalizeFocusKeyword(keyword) {
   if (typeof keyword === 'string') {
     return {
@@ -215,6 +221,18 @@ function normalizeFocusKeyword(keyword) {
     occurrenceCount: Number(keyword.occurrence_count ?? keyword.occurrenceCount),
     sentenceCount: Number(keyword.sentence_count ?? keyword.sentenceCount),
   }
+}
+
+function pickArray(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key]
+
+    if (Array.isArray(value)) {
+      return value
+    }
+  }
+
+  return []
 }
 
 function normalizeSentenceLabel(label, index) {
@@ -278,6 +296,48 @@ function hasAnalysisResultShape(source) {
 function normalizeAnalysisResult(source) {
   const responseBody = extractResponseBody(source) || {}
   const neutralityScoreValue = responseBody.neutrality_score ?? responseBody.neutralityScore
+  const rawSentenceLabels = pickArray(responseBody, ['sentence_labels', 'sentenceLabels'])
+  const normalizedKeywords = (Array.isArray(responseBody.keywords) ? responseBody.keywords : [])
+    .map((keyword) => normalizeKeyword(keyword))
+    .filter(Boolean)
+  const rawEmotionKeywords = pickArray(responseBody, [
+    'emotion_keywords',
+    'emotionKeywords',
+    'emotion_expression_keywords',
+    'emotionExpressionKeywords',
+    'emotional_expression_keywords',
+    'emotionalExpressionKeywords',
+    'emotion_expressions',
+    'emotionExpressions',
+    'emotional_expressions',
+    'emotionalExpressions',
+    'emotion_terms',
+    'emotionTerms',
+    'emotional_terms',
+    'emotionalTerms',
+  ])
+  const fallbackEmotionKeywords = rawSentenceLabels
+    .filter((label) => String(label?.label_type || label?.labelType || '').toLowerCase().includes('emotion'))
+    .map((label) => ({
+      keyword_text:
+        label.evidence_keyword ||
+        label.evidenceKeyword ||
+        label.keyword_text ||
+        label.keywordText ||
+        label.keyword ||
+        label.text ||
+        '',
+      keyword_type: label.label_type || label.labelType || 'emotion',
+      score: label.score,
+    }))
+  const normalizedEmotionKeywords = (rawEmotionKeywords.length
+    ? rawEmotionKeywords
+    : normalizedKeywords.filter((keyword) => isEmotionKeyword(keyword)).length
+      ? normalizedKeywords.filter((keyword) => isEmotionKeyword(keyword))
+      : fallbackEmotionKeywords
+  )
+    .map((keyword) => normalizeKeyword(keyword))
+    .filter((keyword) => keyword?.keywordText)
 
   const normalizedResult = {
     targetId: extractTargetId(responseBody) ?? extractTargetId(source),
@@ -312,22 +372,15 @@ function normalizeAnalysisResult(source) {
       '',
     scoreEvidence: responseBody.score_evidence || '',
     toneLabel: responseBody.tone_label || '',
-    keywords: (Array.isArray(responseBody.keywords) ? responseBody.keywords : [])
-      .map((keyword) => normalizeKeyword(keyword))
-      .filter(Boolean),
+    keywords: normalizedKeywords,
     focusKeywords: (Array.isArray(responseBody.focus_keywords ?? responseBody.focusKeywords)
       ? responseBody.focus_keywords ?? responseBody.focusKeywords
       : []
     )
       .map((keyword) => normalizeFocusKeyword(keyword))
       .filter(Boolean),
-    emotionKeywords: (Array.isArray(responseBody.emotion_keywords ?? responseBody.emotionKeywords)
-      ? responseBody.emotion_keywords ?? responseBody.emotionKeywords
-      : []
-    )
-      .map((keyword) => normalizeKeyword(keyword))
-      .filter(Boolean),
-    sentenceLabels: (Array.isArray(responseBody.sentence_labels) ? responseBody.sentence_labels : [])
+    emotionKeywords: normalizedEmotionKeywords,
+    sentenceLabels: rawSentenceLabels
       .map((label, index) => normalizeSentenceLabel(label, index))
       .filter(Boolean),
     highlightSpans: (Array.isArray(responseBody.highlight_spans) ? responseBody.highlight_spans : [])

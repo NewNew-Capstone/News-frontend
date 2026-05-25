@@ -2353,24 +2353,32 @@
   cursor: pointer;
 }
 
-/* Bookmark ribbon */
+/* Bookmark */
 .video-summary-detail-page__recommendation-bookmark {
   position: absolute;
   top: 12px;
   right: 14px;
   z-index: 1;
   display: inline-grid;
-  place-items: start center;
-  width: 18px;
-  height: 24px;
+  place-items: center;
+  width: 32px;
+  height: 38px;
   padding: 0;
   border: none;
-  background: rgba(176, 186, 198, 0.8);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%);
+  background: transparent;
+  color: rgba(17, 24, 39, 0.82);
   cursor: pointer;
   transition:
     transform 180ms ease,
-    background 180ms ease;
+    color 180ms ease;
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.7))
+    drop-shadow(0 8px 14px rgba(0, 0, 0, 0.2));
+}
+
+.video-summary-detail-page__recommendation-bookmark svg {
+  width: 25px;
+  height: 31px;
 }
 
 .video-summary-detail-page__recommendation-bookmark:hover {
@@ -2378,7 +2386,7 @@
 }
 
 .video-summary-detail-page__recommendation-bookmark--active {
-  background: var(--blue, #3182F6);
+  color: var(--blue, #3182F6);
 }
 
 /* Thumbnail */

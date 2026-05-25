@@ -638,27 +638,26 @@
   gap: 0;
   max-width: 1360px;
   border-top: 0;
-  border: 1px solid rgba(217, 226, 242, 0.62);
+  border: 1px solid rgba(65, 92, 137, 0.46);
   border-top: 0;
   border-radius: 0 0 28px 28px;
   overflow: hidden;
-  background: rgba(239, 247, 255, 0.36);
+  background: #07111f;
   box-shadow:
-    0 24px 64px rgba(76, 102, 153, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.66);
+    0 28px 72px rgba(7, 17, 31, 0.22),
+    inset 0 1px 0 rgba(187, 232, 255, 0.18);
 }
 
 .comparison-graph-page__map {
   position: relative;
-  min-height: clamp(560px, 68vh, 760px);
+  min-height: clamp(660px, 78vh, 900px);
   overflow: hidden;
   border: 0;
   border-radius: 0 0 28px 28px;
   background:
-    linear-gradient(180deg, rgba(248, 251, 255, 0.22) 0%, rgba(236, 246, 255, 0.18) 18%, rgba(222, 237, 255, 0.46) 100%),
-    radial-gradient(circle at 50% 39%, rgba(49, 130, 246, 0.16), transparent 34%),
-    radial-gradient(circle at 18% 78%, rgba(125, 164, 224, 0.13), transparent 28%),
-    radial-gradient(circle at 82% 76%, rgba(148, 183, 232, 0.12), transparent 26%);
+    linear-gradient(180deg, rgba(4, 10, 23, 0.98) 0%, rgba(7, 18, 36, 0.95) 46%, rgba(13, 29, 50, 0.96) 100%),
+    radial-gradient(ellipse at 50% 42%, rgba(52, 148, 218, 0.22), transparent 45%),
+    linear-gradient(115deg, rgba(111, 230, 255, 0.1), transparent 30%, rgba(255, 202, 116, 0.08) 68%, transparent 86%);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -668,21 +667,40 @@
   filter: saturate(1.08) contrast(1.04);
 }
 
+.comparison-graph-page__map::before,
 .comparison-graph-page__map::after {
   content: '';
   position: absolute;
   inset: 0;
-  z-index: 30;
   pointer-events: none;
+}
+
+.comparison-graph-page__map::before {
+  z-index: 0;
   background:
-    radial-gradient(circle, transparent 0%, rgba(49, 130, 246, 0.08) 100%);
-  mix-blend-mode: multiply;
-  opacity: 0.34;
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.82) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 24% 72%, rgba(166, 221, 255, 0.7) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 37% 24%, rgba(255, 255, 255, 0.58) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 68% 16%, rgba(187, 232, 255, 0.76) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 79% 64%, rgba(255, 255, 255, 0.62) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 92% 32%, rgba(255, 216, 157, 0.62) 0 1px, transparent 1.8px),
+    linear-gradient(90deg, rgba(118, 240, 255, 0.04), transparent 24%, transparent 76%, rgba(255, 202, 116, 0.04));
+  opacity: 0.86;
+}
+
+.comparison-graph-page__map::after {
+  z-index: 30;
+  background:
+    linear-gradient(90deg, rgba(1, 7, 18, 0.48), transparent 18%, transparent 82%, rgba(1, 7, 18, 0.44)),
+    radial-gradient(ellipse at 50% 46%, transparent 0%, transparent 46%, rgba(1, 8, 20, 0.5) 100%);
+  mix-blend-mode: normal;
+  opacity: 0.82;
 }
 
 .comparison-graph-page__canvas {
   position: absolute !important;
   inset: 0;
+  z-index: 1;
   width: 100% !important;
   height: 100% !important;
 }

@@ -245,6 +245,12 @@ function normalizeDisplayKeyword(keyword) {
   }
 }
 
+function isEmotionKeyword(keyword) {
+  return String(keyword?.keywordType || keyword?.keyword_type || '')
+    .trim()
+    .toUpperCase() === 'EMOTION'
+}
+
 function formatDate(value) {
   if (!value) {
     return ''
@@ -289,9 +295,18 @@ export function normalizeComparisonVideo(video, index = 0) {
     pickFirst(video, ['country_code', 'countryCode', 'country', 'countryName', 'nation'], 'KR'),
   )
   const country = COUNTRY_LOOKUP.get(countryCode)
+  const normalizedKeywords = toArray(video?.keywords)
+    .map((keyword) => normalizeDisplayKeyword(keyword))
+    .filter(Boolean)
+  const explicitEmotionKeywords = toArray(video?.emotion_keywords ?? video?.emotionKeywords)
+    .map((keyword) => normalizeDisplayKeyword(keyword))
+    .filter(Boolean)
 
   return {
     id: pickFirst(video, ['id', 'node_id', 'nodeId'], videoId || `comparison-video-${index + 1}`),
+    targetId: pickFirst(video, ['target_id', 'targetId', 'analysis_target_id', 'analysisTargetId'], null),
+    analysisAvailable: Boolean(pickFirst(video, ['analysis_available', 'analysisAvailable'], false)),
+    analysisUrl: pickFirst(video, ['analysis_url', 'analysisUrl'], ''),
     videoId,
     title: pickFirst(video, ['title', 'videoTitle', 'name'], '영상 제목 정보가 없습니다.'),
     originalUrl: pickFirst(video, ['original_url', 'originalUrl', 'url'], videoId ? `https://www.youtube.com/watch?v=${videoId}` : ''),
@@ -315,9 +330,9 @@ export function normalizeComparisonVideo(video, index = 0) {
     focusKeywords: toArray(video.focus_keywords ?? video.focusKeywords)
       .map((keyword) => normalizeFocusKeyword(keyword))
       .filter(Boolean),
-    emotionKeywords: toArray(video.emotion_keywords ?? video.emotionKeywords)
-      .map((keyword) => normalizeDisplayKeyword(keyword))
-      .filter(Boolean),
+    emotionKeywords: explicitEmotionKeywords.length
+      ? explicitEmotionKeywords
+      : normalizedKeywords.filter((keyword) => isEmotionKeyword(keyword)),
   }
 }
 
@@ -708,6 +723,27 @@ export async function fetchComparisonGraph({ videoId, accessToken } = {}) {
   })
 
   return normalizeComparisonGraph(comparePayload, videoId)
+}
+
+export async function fetchComparisonVideoTarget({ videoId, accessToken } = {}) {
+  const encodedVideoId = encodeURIComponent(videoId || '')
+
+  if (!encodedVideoId) {
+    return null
+  }
+
+  const payload = await requestJson(`/api/v1/comparison/videos/${encodedVideoId}/target`, {
+    accessToken,
+    fallbackErrorMessage: '분석 대상 정보를 불러오지 못했습니다.',
+  })
+  const body = extractBody(payload) || {}
+
+  return {
+    videoId: body.youtube_video_id || body.youtubeVideoId || videoId,
+    targetId: body.target_id ?? body.targetId ?? null,
+    analysisUrl: body.analysis_url || body.analysisUrl || '',
+    analysisAvailable: Boolean(body.analysis_available ?? body.analysisAvailable),
+  }
 }
 
 export async function requestComparisonInsight({ selectedVideo, comparedVideo, relationEdge, graphData, accessToken } = {}) {

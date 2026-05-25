@@ -9,9 +9,11 @@ import mockComparisonThumbnail from '../assets/summary.jpg'
 import {
   COMPARISON_COUNTRIES,
   fetchComparisonGraph,
+  fetchComparisonVideoTarget,
   requestComparisonInsight,
   searchComparisonVideos,
 } from '../services/comparison'
+import { fetchVideoAnalysisResult } from '../services/analysis'
 import './CountryCompare.css'
 
 const countryDisplay = {
@@ -63,15 +65,16 @@ const COUNTRY_MODEL_STYLE = {
   },
 }
 const COMPARISON_BACKGROUND_MODEL_CONFIG = {
-  url: '/models/china-congress-background.glb',
+  url: '/models/earth.glb',
   bounds: {
-    min: [-0.9508360028266907, -0.40441015362739563, -0.9499321579933167],
-    max: [0.9489399790763855, 0.40192410349845886, 0.9488220810890198],
+    min: [-0.9502419829368591, -0.9507431387901306, -0.9497981071472168],
+    max: [0.9484429955482483, 0.947309136390686, 0.9443271160125732],
   },
-  orientation: [0, 0, 0],
-  position: [0, -1.94, -2.72],
-  targetWidth: 8.4,
-  opacity: 0.14,
+  orientation: [-8, -24, 0],
+  position: [0, -0.68, -3.24],
+  targetWidth: 4.65,
+  opacity: 0.42,
+  centerOnOrigin: true,
 }
 const WHITE_HOUSE_RECOMMENDATION_MODEL_CONFIG = {
   url: '/models/us-white-house-stage.glb',
@@ -864,20 +867,20 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
 function SpatialPointCloud() {
   const pointsRef = useRef(null)
   const positions = useMemo(() => {
-    const dotCount = 900
+    const dotCount = 1200
     const nextPositions = new Float32Array(dotCount * 3)
 
     for (let index = 0; index < dotCount; index += 1) {
       const t = index / dotCount
       const angle = t * Math.PI * 16
-      const tunnel = 1.2 + t * 3.4
-      const wave = Math.sin(t * Math.PI * 10) * 0.45
-      const jitter = (Math.sin(index * 12.9898) * 43758.5453 % 1 - 0.5) * 0.34
-      const radius = 0.42 + Math.sin(t * Math.PI * 6) * 0.18 + jitter
+      const tunnel = 1.6 + t * 4.8
+      const wave = Math.sin(t * Math.PI * 10) * 0.72
+      const jitter = (Math.sin(index * 12.9898) * 43758.5453 % 1 - 0.5) * 0.56
+      const radius = 0.86 + Math.sin(t * Math.PI * 6) * 0.32 + jitter
 
-      nextPositions[index * 3] = Math.cos(angle) * (radius + wave) + Math.cos(t * Math.PI * 2) * 1.2
-      nextPositions[index * 3 + 1] = Math.sin(angle) * radius + Math.sin(t * Math.PI * 3) * 0.7
-      nextPositions[index * 3 + 2] = -tunnel + Math.sin(angle * 0.7) * 0.8
+      nextPositions[index * 3] = Math.cos(angle) * (radius + wave) + Math.cos(t * Math.PI * 2) * 2.5
+      nextPositions[index * 3 + 1] = Math.sin(angle) * radius + Math.sin(t * Math.PI * 3) * 1.12
+      nextPositions[index * 3 + 2] = -tunnel + Math.sin(angle * 0.7) * 1.12
     }
 
     return nextPositions
@@ -900,11 +903,11 @@ function SpatialPointCloud() {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        color="#ffffff"
-        size={0.018}
+        color="#d9f8ff"
+        size={0.014}
         sizeAttenuation
         transparent
-        opacity={0.28}
+        opacity={0.46}
         depthWrite={false}
       />
     </points>
@@ -1284,7 +1287,8 @@ function CurvedTextLine({ text, y, span = 0.72, radius = 1.055, fontSize = 0.11,
           color={color}
           fontWeight={950}
           outlineWidth={0.012}
-          outlineColor="rgba(12, 45, 104, 0.62)"
+          outlineColor="#0c2d68"
+          outlineOpacity={0.62}
         >
           {letter}
         </Text>
@@ -1755,6 +1759,7 @@ function CountryModelNode({ config, active = false }) {
 
 function BackgroundSceneModel() {
   const { scene } = useGLTF(COMPARISON_BACKGROUND_MODEL_CONFIG.url)
+  const groupRef = useRef(null)
   const model = useMemo(() => {
     const clonedScene = scene.clone(true)
 
@@ -1798,21 +1803,46 @@ function BackgroundSceneModel() {
   const largestHorizontalSize = Math.max(size[0], size[2], 0.001)
   const modelScale = COMPARISON_BACKGROUND_MODEL_CONFIG.targetWidth / largestHorizontalSize
   const orientation = COMPARISON_BACKGROUND_MODEL_CONFIG.orientation.map((degrees) => degreesToRadians(degrees))
+  const modelPosition = COMPARISON_BACKGROUND_MODEL_CONFIG.centerOnOrigin
+    ? [-center[0], -center[1], -center[2]]
+    : [
+        -center[0],
+        -COMPARISON_BACKGROUND_MODEL_CONFIG.bounds.min[1],
+        -center[2],
+      ]
+
+  useFrame(({ clock }) => {
+    if (!groupRef.current) {
+      return
+    }
+
+    groupRef.current.rotation.x = orientation[0] + Math.sin(clock.getElapsedTime() * 0.16) * 0.035
+    groupRef.current.rotation.y = orientation[1] + clock.getElapsedTime() * 0.035
+    groupRef.current.rotation.z = orientation[2]
+  })
 
   return (
     <group
+      ref={groupRef}
       position={COMPARISON_BACKGROUND_MODEL_CONFIG.position}
       rotation={orientation}
       scale={[modelScale, modelScale, modelScale]}
     >
       <primitive
         object={model}
-        position={[
-          -center[0],
-          -COMPARISON_BACKGROUND_MODEL_CONFIG.bounds.min[1],
-          -center[2],
-        ]}
+        position={modelPosition}
       />
+      <mesh position={modelPosition} scale={[1.05, 1.05, 1.05]} renderOrder={-2}>
+        <sphereGeometry args={[Math.max(size[0], size[1], size[2]) / 2, 64, 64]} />
+        <meshBasicMaterial
+          color="#76f0ff"
+          transparent
+          opacity={0.13}
+          side={THREE.BackSide}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
     </group>
   )
 }
@@ -2374,13 +2404,13 @@ function ComparisonGraph({ graphData, onCompareVideo }) {
   const videoAnchors =
     revealedCountryCode === 'US'
       ? [
-          [videoAnchorSide * 1.86, 1.02],
-          [videoAnchorSide * 0.48, 1.08],
+          [videoAnchorSide * 1.86, 0.76],
+          [videoAnchorSide * 0.48, 0.82],
           [videoAnchorSide * 1.82, -0.74],
         ]
       : [
-          [videoAnchorSide * 1.05, 0.92],
-          [videoAnchorSide * 2.28, 0.92],
+          [videoAnchorSide * 1.05, 0.68],
+          [videoAnchorSide * 2.28, 0.68],
           [videoAnchorSide * 1.05, -0.92],
         ]
   const videoPositionRefs = useMemo(
@@ -2673,20 +2703,101 @@ function ComparisonVideoModalCard({ video, title, relationEdge = null, graphData
   )
 }
 
+function mergeVideoAnalysis(video, analysisTarget, analysisResult) {
+  if (!video) {
+    return video
+  }
+
+  const focusKeywords = Array.isArray(analysisResult?.focusKeywords) ? analysisResult.focusKeywords : []
+  const emotionKeywords = Array.isArray(analysisResult?.emotionKeywords) ? analysisResult.emotionKeywords : []
+
+  return {
+    ...video,
+    targetId: analysisTarget?.targetId ?? video.targetId,
+    analysisAvailable: analysisTarget?.analysisAvailable ?? video.analysisAvailable,
+    analysisUrl: analysisTarget?.analysisUrl || video.analysisUrl,
+    focusKeywords: focusKeywords.length ? focusKeywords : video.focusKeywords,
+    emotionKeywords: emotionKeywords.length ? emotionKeywords : video.emotionKeywords,
+  }
+}
+
+async function fetchVideoExpressionAnalysis(video, accessToken) {
+  if (!video?.videoId && !video?.targetId) {
+    return video
+  }
+
+  let analysisTarget = null
+  let targetId = video.targetId
+
+  if (video.videoId) {
+    try {
+      analysisTarget = await fetchComparisonVideoTarget({ videoId: video.videoId, accessToken })
+      targetId = analysisTarget?.targetId ?? targetId
+    } catch {
+      analysisTarget = null
+    }
+  }
+
+  if (!targetId) {
+    return mergeVideoAnalysis(video, analysisTarget, null)
+  }
+
+  try {
+    const analysisResult = await fetchVideoAnalysisResult(targetId, accessToken)
+
+    return mergeVideoAnalysis(video, analysisTarget, analysisResult)
+  } catch {
+    return mergeVideoAnalysis(video, analysisTarget, null)
+  }
+}
+
 function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }) {
   const [comparisonInsight, setComparisonInsight] = useState(null)
+  const [analysisVideos, setAnalysisVideos] = useState({ key: '', selected: null, compared: null })
 
   const relationEdge = findComparisonEdge(graphData, comparedVideo)
+  const analysisKey = `${graphData?.selectedVideo?.videoId || graphData?.selectedVideo?.id || ''}:${comparedVideo?.videoId || comparedVideo?.id || ''}`
+  const selectedDisplayVideo = analysisVideos.key === analysisKey && analysisVideos.selected
+    ? analysisVideos.selected
+    : graphData?.selectedVideo
+  const comparedDisplayVideo = analysisVideos.key === analysisKey && analysisVideos.compared
+    ? analysisVideos.compared
+    : comparedVideo
+  const displayGraphData = useMemo(() => (
+    graphData ? { ...graphData, selectedVideo: selectedDisplayVideo } : graphData
+  ), [graphData, selectedDisplayVideo])
   const fallbackInsight = useMemo(() => (
-    graphData?.selectedVideo && comparedVideo
+    selectedDisplayVideo && comparedDisplayVideo
       ? createFallbackComparisonInsight({
-          selectedVideo: graphData.selectedVideo,
-          comparedVideo,
+          selectedVideo: selectedDisplayVideo,
+          comparedVideo: comparedDisplayVideo,
           relationEdge,
         })
       : null
-  ), [comparedVideo, graphData, relationEdge])
+  ), [comparedDisplayVideo, relationEdge, selectedDisplayVideo])
   const displayedInsight = comparisonInsight || fallbackInsight
+
+  useEffect(() => {
+    if (!graphData?.selectedVideo || !comparedVideo || graphData.isMock) {
+      return undefined
+    }
+
+    let isCancelled = false
+    const nextAnalysisKey = analysisKey
+
+    Promise.all([
+      fetchVideoExpressionAnalysis(graphData.selectedVideo, accessToken),
+      fetchVideoExpressionAnalysis(comparedVideo, accessToken),
+    ]).then(([selected, compared]) => {
+      if (!isCancelled) {
+        setAnalysisVideos({ key: nextAnalysisKey, selected, compared })
+      }
+    })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [accessToken, analysisKey, comparedVideo, graphData?.isMock, graphData?.selectedVideo])
 
   useEffect(() => {
     if (!graphData?.selectedVideo || !comparedVideo) {
@@ -2751,16 +2862,16 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
 
         <div className="comparison-graph-page__compare-grid">
           <ComparisonVideoModalCard
-            video={graphData.selectedVideo}
+            video={selectedDisplayVideo}
             title="원본 영상"
             relationEdge={relationEdge}
-            graphData={graphData}
+            graphData={displayGraphData}
           />
           <ComparisonVideoModalCard
-            video={comparedVideo}
+            video={comparedDisplayVideo}
             title="비교 영상"
             relationEdge={relationEdge}
-            graphData={graphData}
+            graphData={displayGraphData}
           />
         </div>
 
@@ -2889,7 +3000,7 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
           <StatePanel title="그래프를 구성하는 중입니다" message="선택한 영상과 다른 국가의 관련 영상을 연결하고 있어요." />
         ) : null}
 
-        {!isLoading && errorMessage ? (
+        {!isLoading && errorMessage && !graphData?.isMock ? (
           <StatePanel
             title={graphData?.isMock ? 'Mock 그래프 표시 중' : '그래프를 불러오지 못했습니다'}
             message={errorMessage}
