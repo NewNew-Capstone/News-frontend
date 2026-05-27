@@ -18,7 +18,7 @@ import {
 import { normalizeYoutubeVideoId } from '../utils/youtubeVideo'
 import './VideoSummaryDetail.css'
 
-const ANALYSIS_POLL_ATTEMPTS = 8
+const ANALYSIS_POLL_ATTEMPTS = 3
 const ANALYSIS_POLL_INTERVAL_MS = 2_500
 const MAX_RECOMMENDATIONS = 8
 const MAX_COMMENTS = 5
@@ -365,6 +365,20 @@ function isAnalysisMissingError(error) {
   return error?.status === 404 || error?.statusCode === 'A003'
 }
 
+function isAnalysisReadyStatus(status) {
+  return ['SUCCESS', 'COMPLETED', 'COMPLETE', 'DONE', 'READY'].includes(String(status || '').toUpperCase())
+}
+
+function isAnalysisPendingStatus(status) {
+  return ['PENDING', 'PROCESSING', 'IN_PROGRESS', 'STARTED', 'ACCEPTED', 'RUNNING', 'QUEUED'].includes(
+    String(status || '').toUpperCase(),
+  )
+}
+
+function getAnalysisPendingMessage() {
+  return '분석 요청은 접수됐지만 결과가 아직 생성 중입니다. 잠시 후 분석 버튼을 다시 눌러 확인해 주세요.'
+}
+
 function isTranscriptUnavailableError(error) {
   const message = String(error?.message || '').toLowerCase()
   const statusCode = String(error?.statusCode || '').toLowerCase()
@@ -621,7 +635,7 @@ async function pollAnalysisResult(targetId, accessToken = '') {
   }
 
   if (pendingError) {
-    throw new Error('분석 요청은 접수됐지만 결과를 만드는 중입니다. 잠시 후 다시 확인해 주세요.')
+    throw new Error(getAnalysisPendingMessage())
   }
 
   throw new Error('영상 분석 결과를 불러오지 못했습니다.')
@@ -681,6 +695,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const [analysisResult, setAnalysisResult] = useState(null)
   const [analysisErrorMessage, setAnalysisErrorMessage] = useState('')
   const [analysisTargetId, setAnalysisTargetId] = useState(null)
+  const [pendingAnalysisTargetId, setPendingAnalysisTargetId] = useState(null)
   const [hasCheckedExistingAnalysis, setHasCheckedExistingAnalysis] = useState(false)
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false)
   const [isAnalysisEvidenceOpen, setIsAnalysisEvidenceOpen] = useState(false)
@@ -932,6 +947,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       setAnalysisErrorMessage('')
       setIsAnalysisProgressView(false)
       setAnalysisTargetId(null)
+      setPendingAnalysisTargetId(null)
       setHasCheckedExistingAnalysis(false)
       setIsOpposingAnalysisVisible(false)
       setOpposingAnalysisResult(null)
@@ -1274,6 +1290,24 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     setActionErrorMessage('')
 
     try {
+      if (pendingAnalysisTargetId && !analysisResult) {
+        try {
+          const pendingAnalysisResult = await fetchVideoAnalysisResult(pendingAnalysisTargetId, accessToken)
+
+          setAnalysisTargetId(pendingAnalysisTargetId)
+          setPendingAnalysisTargetId(null)
+          setHasCheckedExistingAnalysis(true)
+          setAnalysisResult(pendingAnalysisResult)
+          return
+        } catch (error) {
+          if (isAnalysisMissingError(error)) {
+            throw new Error(getAnalysisPendingMessage())
+          }
+
+          throw error
+        }
+      }
+
       const startedAnalysis = await startVideoAnalysis(analysisYoutubeId, accessToken)
       const nextTargetId =
         startedAnalysis.targetId ??
@@ -1286,6 +1320,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
         }
 
         setHasCheckedExistingAnalysis(true)
+        setPendingAnalysisTargetId(null)
         setAnalysisResult(startedAnalysis.analysisResult)
         return
       }
@@ -1297,8 +1332,20 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       setAnalysisTargetId(nextTargetId)
       setHasCheckedExistingAnalysis(true)
 
+      if (isAnalysisPendingStatus(startedAnalysis.status)) {
+        setPendingAnalysisTargetId(nextTargetId)
+        throw new Error(getAnalysisPendingMessage())
+      }
+
+      if (startedAnalysis.status && !isAnalysisReadyStatus(startedAnalysis.status)) {
+        setPendingAnalysisTargetId(nextTargetId)
+        throw new Error(getAnalysisPendingMessage())
+      }
+
+      setPendingAnalysisTargetId(nextTargetId)
       const nextAnalysisResult = await pollAnalysisResult(nextTargetId, accessToken)
 
+      setPendingAnalysisTargetId(null)
       setAnalysisResult(nextAnalysisResult)
     } catch (error) {
       if (isTranscriptUnavailableError(error)) {

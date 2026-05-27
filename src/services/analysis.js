@@ -95,6 +95,60 @@ function normalizeNumericLikeValue(value) {
   return null
 }
 
+function normalizeAnalysisStatusValue(value) {
+  if (typeof value === 'string') {
+    return value.trim().toUpperCase()
+  }
+
+  if (!value || typeof value !== 'object') {
+    return ''
+  }
+
+  return normalizeAnalysisStatusValue(
+    value.analysis_status ??
+      value.analysisStatus ??
+      value.job_status ??
+      value.jobStatus ??
+      value.processing_status ??
+      value.processingStatus ??
+      value.result_status ??
+      value.resultStatus ??
+      value.status,
+  )
+}
+
+function extractAnalysisJobStatus(payload, responseBody) {
+  const statusCandidates = [
+    responseBody?.analysis_status,
+    responseBody?.analysisStatus,
+    responseBody?.job_status,
+    responseBody?.jobStatus,
+    responseBody?.processing_status,
+    responseBody?.processingStatus,
+    responseBody?.result_status,
+    responseBody?.resultStatus,
+    responseBody?.status,
+    payload?.body?.analysis_status,
+    payload?.body?.analysisStatus,
+    payload?.body?.job_status,
+    payload?.body?.jobStatus,
+    payload?.data?.analysis_status,
+    payload?.data?.analysisStatus,
+    payload?.result?.analysis_status,
+    payload?.result?.analysisStatus,
+  ]
+
+  for (const candidate of statusCandidates) {
+    const normalizedStatus = normalizeAnalysisStatusValue(candidate)
+
+    if (normalizedStatus) {
+      return normalizedStatus
+    }
+  }
+
+  return ''
+}
+
 function extractTargetId(source, depth = 0) {
   if (!source || typeof source !== 'object' || depth > 4) {
     return null
@@ -471,7 +525,7 @@ export async function startVideoAnalysis(youtubeId, accessToken = getAccessToken
 
   return {
     jobId: responseBody?.job_id || responseBody?.jobId || null,
-    status: responseBody?.status || '',
+    status: extractAnalysisJobStatus(payload, responseBody),
     targetId,
     analysisResult,
   }
