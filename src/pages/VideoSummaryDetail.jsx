@@ -708,6 +708,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const [mainScrapId, setMainScrapId] = useState(null)
   const [isMainScrapped, setIsMainScrapped] = useState(false)
   const [isMainScrapLoading, setIsMainScrapLoading] = useState(false)
+  const [opposingScrapId, setOpposingScrapId] = useState(null)
+  const [isOpposingScrapped, setIsOpposingScrapped] = useState(false)
+  const [isOpposingScrapLoading, setIsOpposingScrapLoading] = useState(false)
   const [pendingRecommendationIds, setPendingRecommendationIds] = useState([])
 
   const summaryText = analysisResult?.summaryText || videoDetail?.description || ''
@@ -782,9 +785,11 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       return keyword
     })
     .filter((keyword) => keyword?.keywordText)
-  const hasOpposingSeparatedKeywordGroups = Boolean(opposingAnalysisResult?.hasSeparatedKeywords)
+  const hasOpposingSeparatedKeywordGroups = Boolean(opposingAnalysisResult)
   const visibleOpposingLegacyKeywordItems = legacyOpposingKeywordItems.slice(0, MAX_EXPRESSION_KEYWORDS)
-  const visibleOpposingFocusKeywordItems = opposingFocusKeywordItems.slice(0, MAX_EXPRESSION_KEYWORDS)
+  const visibleOpposingFocusKeywordItems = (
+    opposingFocusKeywordItems.length ? opposingFocusKeywordItems : legacyOpposingKeywordItems
+  ).slice(0, MAX_EXPRESSION_KEYWORDS)
   const visibleOpposingEmotionKeywordItems = (opposingAnalysisResult?.emotionKeywords || [])
     .filter((keyword) => keyword?.keywordText)
     .slice(0, MAX_EXPRESSION_KEYWORDS)
@@ -805,9 +810,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       toneClassName: 'video-summary-detail-page__analysis-metric-fill--opinion',
     },
     {
-      key: 'overall-bias',
-      label: '전체 편향도',
-      value: opposingAnalysisResult?.overallBiasScore ?? null,
+      key: 'emotion',
+      label: '감정성',
+      value: opposingAnalysisResult?.emotionScore ?? null,
       toneClassName: 'video-summary-detail-page__analysis-metric-fill--emotion',
     },
   ]
@@ -916,9 +921,13 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
   const syncScrapState = (scrapLookup, mainYoutubeVideoId = videoDetail?.youtubeVideoId || '') => {
     const mainScrapItem = mainYoutubeVideoId ? scrapLookup[mainYoutubeVideoId] || null : null
+    const opposingYoutubeVideoId = opposingAnalysisResult?.youtubeVideoId || ''
+    const opposingScrapItem = opposingYoutubeVideoId ? scrapLookup[opposingYoutubeVideoId] || null : null
 
     setIsMainScrapped(Boolean(mainScrapItem))
     setMainScrapId(mainScrapItem?.scrapId ?? null)
+    setIsOpposingScrapped(Boolean(opposingScrapItem))
+    setOpposingScrapId(opposingScrapItem?.scrapId ?? null)
     setVideoDetail((currentVideoDetail) =>
       applyScrapLookupToVideoDetail(currentVideoDetail, scrapLookup),
     )
@@ -958,6 +967,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       setMainScrapId(null)
       setIsMainScrapped(false)
       setIsMainScrapLoading(false)
+      setOpposingScrapId(null)
+      setIsOpposingScrapped(false)
+      setIsOpposingScrapLoading(false)
       setPendingRecommendationIds([])
       setTranscriptErrorMessage('')
 
@@ -1146,6 +1158,44 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     }, 2_000)
   }
 
+  const handleShareCurrentVideo = async () => {
+    const shareUrl = videoDetail?.originalUrl || buildYoutubeWatchUrl(videoDetail?.youtubeVideoId)
+
+    if (!shareUrl) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setShareAnnouncement('기준 영상 링크를 복사했습니다.')
+    } catch {
+      setShareAnnouncement('주소를 직접 복사해 주세요.')
+    }
+
+    window.setTimeout(() => {
+      setShareAnnouncement('')
+    }, 2_000)
+  }
+
+  const handleShareOpposingVideo = async () => {
+    const shareUrl = buildYoutubeWatchUrl(opposingAnalysisResult?.youtubeVideoId)
+
+    if (!shareUrl) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setShareAnnouncement('다른 관점 영상 링크를 복사했습니다.')
+    } catch {
+      setShareAnnouncement('주소를 직접 복사해 주세요.')
+    }
+
+    window.setTimeout(() => {
+      setShareAnnouncement('')
+    }, 2_000)
+  }
+
   const handleToggleMainScrap = async () => {
     if (!isLoggedIn) {
       onAuthClick?.()
@@ -1174,6 +1224,42 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       )
     } finally {
       setIsMainScrapLoading(false)
+    }
+  }
+
+  const handleToggleOpposingScrap = async () => {
+    if (!isLoggedIn) {
+      onAuthClick?.()
+      return
+    }
+
+    if (!opposingAnalysisResult?.youtubeVideoId || isOpposingScrapLoading) {
+      return
+    }
+
+    setIsOpposingScrapLoading(true)
+    setActionErrorMessage('')
+
+    try {
+      if (isOpposingScrapped && opposingScrapId) {
+        await deleteScrapVideo(opposingScrapId, accessToken)
+      } else {
+        await saveScrapVideo(opposingAnalysisResult.youtubeVideoId, accessToken)
+      }
+
+      const latestScrapVideos = await fetchScrapVideos(accessToken)
+      const scrapLookup = createScrapLookup(latestScrapVideos)
+      const nextOpposingScrapItem = scrapLookup[opposingAnalysisResult.youtubeVideoId] || null
+
+      syncScrapState(scrapLookup, videoDetail?.youtubeVideoId || '')
+      setIsOpposingScrapped(Boolean(nextOpposingScrapItem))
+      setOpposingScrapId(nextOpposingScrapItem?.scrapId ?? null)
+    } catch (error) {
+      setActionErrorMessage(
+        error instanceof Error ? error.message : '다른 관점 영상 스크랩 상태를 변경하지 못했습니다.',
+      )
+    } finally {
+      setIsOpposingScrapLoading(false)
     }
   }
 
@@ -1261,6 +1347,17 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       }
 
       setOpposingAnalysisResult(enrichedOpposingAnalysis)
+      try {
+        const latestScrapVideos = await fetchScrapVideos(accessToken)
+        const scrapLookup = createScrapLookup(latestScrapVideos)
+        const nextOpposingScrapItem = scrapLookup[enrichedOpposingAnalysis.youtubeVideoId] || null
+
+        setIsOpposingScrapped(Boolean(nextOpposingScrapItem))
+        setOpposingScrapId(nextOpposingScrapItem?.scrapId ?? null)
+      } catch {
+        setIsOpposingScrapped(false)
+        setOpposingScrapId(null)
+      }
     } catch (error) {
       setOpposingAnalysisErrorMessage(
         error instanceof Error
@@ -1412,7 +1509,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                 <div className="video-summary-detail-page__header-actions">
                   <button
                     type="button"
-                    className="video-summary-detail-page__icon-action"
+                    className="video-summary-detail-page__icon-action video-summary-detail-page__main-header-share"
                     onClick={handleShare}
                     aria-label="영상 상세 링크 공유"
                     title="공유"
@@ -1421,14 +1518,14 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                   </button>
                   <button
                     type="button"
-                    className={`video-summary-detail-page__icon-action ${
+                    className={`video-summary-detail-page__icon-action video-summary-detail-page__main-header-scrap ${
                       isMainScrapped ? 'video-summary-detail-page__icon-action--active' : ''
                     }`}
                     onClick={handleToggleMainScrap}
                     disabled={isMainScrapLoading}
-                    aria-label={isMainScrapped ? '스크랩 해제' : '스크랩 저장'}
+                    aria-label={isMainScrapped ? '기준 영상 스크랩 해제' : '기준 영상 스크랩 저장'}
                     aria-pressed={isMainScrapped}
-                    title={isMainScrapped ? '스크랩 해제' : '스크랩'}
+                    title={isMainScrapped ? '기준 영상 스크랩 해제' : '기준 영상 스크랩'}
                   >
                     <BookmarkIcon />
                   </button>
@@ -1462,6 +1559,33 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                   }`}
                 >
                   <div className="video-summary-detail-page__analysis-current-pane">
+                  <header className="video-summary-detail-page__analysis-pane-header video-summary-detail-page__analysis-pane-header--current">
+                    <h2>기준 영상</h2>
+                    <span className="video-summary-detail-page__pane-header-actions">
+                      <button
+                        type="button"
+                        className="video-summary-detail-page__icon-action video-summary-detail-page__pane-scrap-action"
+                        onClick={handleShareCurrentVideo}
+                        aria-label="기준 영상 링크 복사"
+                        title="기준 영상 링크 복사"
+                      >
+                        <ShareIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className={`video-summary-detail-page__icon-action video-summary-detail-page__pane-scrap-action ${
+                          isMainScrapped ? 'video-summary-detail-page__icon-action--active' : ''
+                        }`}
+                        onClick={handleToggleMainScrap}
+                        disabled={isMainScrapLoading}
+                        aria-label={isMainScrapped ? '기준 영상 스크랩 해제' : '기준 영상 스크랩 저장'}
+                        aria-pressed={isMainScrapped}
+                        title={isMainScrapped ? '기준 영상 스크랩 해제' : '기준 영상 스크랩'}
+                      >
+                        <BookmarkIcon />
+                      </button>
+                    </span>
+                  </header>
                   <div className="video-summary-detail-page__analysis-report">
                     <div className="video-summary-detail-page__analysis-top-grid">
                       <div className="video-summary-detail-page__hero video-summary-detail-page__hero--analysis video-summary-detail-page__analysis-report-hero">
@@ -1679,8 +1803,36 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                   >
                     <header className="video-summary-detail-page__section-header video-summary-detail-page__section-header--opposing">
                       <h2>다른 관점의 영상</h2>
-                      <span className="video-summary-detail-page__opposing-pane-badge">
-                        {opposingAnalysisToneLabel}
+                      <span className="video-summary-detail-page__pane-header-actions">
+                        <span className="video-summary-detail-page__opposing-pane-badge">
+                          {opposingAnalysisToneLabel}
+                        </span>
+                        {opposingAnalysisResult?.youtubeVideoId ? (
+                          <>
+                            <button
+                              type="button"
+                              className="video-summary-detail-page__icon-action video-summary-detail-page__pane-scrap-action video-summary-detail-page__pane-scrap-action--opposing"
+                              onClick={handleShareOpposingVideo}
+                              aria-label="다른 관점 영상 링크 복사"
+                              title="다른 관점 영상 링크 복사"
+                            >
+                              <ShareIcon />
+                            </button>
+                            <button
+                              type="button"
+                              className={`video-summary-detail-page__icon-action video-summary-detail-page__pane-scrap-action video-summary-detail-page__pane-scrap-action--opposing ${
+                                isOpposingScrapped ? 'video-summary-detail-page__icon-action--active' : ''
+                              }`}
+                              onClick={handleToggleOpposingScrap}
+                              disabled={isOpposingScrapLoading}
+                              aria-label={isOpposingScrapped ? '다른 관점 영상 스크랩 해제' : '다른 관점 영상 스크랩 저장'}
+                              aria-pressed={isOpposingScrapped}
+                              title={isOpposingScrapped ? '다른 관점 영상 스크랩 해제' : '다른 관점 영상 스크랩'}
+                            >
+                              <BookmarkIcon />
+                            </button>
+                          </>
+                        ) : null}
                       </span>
                     </header>
 
@@ -1757,7 +1909,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                           <span className="video-summary-detail-page__analysis-evidence-copy">
                             <span>DETAIL EVIDENCE</span>
                             <strong>다른 관점 영상 분석 근거 자세히 보기</strong>
-                            <small>{opposingScoreReasonText}</small>
+                            <small>총점 산출 방식, 의견성·감정성 지표와 감정 키워드를 확인합니다.</small>
                           </span>
                           <span className="video-summary-detail-page__analysis-evidence-meta">
                             <span>{formatScorePoints(opposingAnalysisResult.overallBiasScore)}</span>

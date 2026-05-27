@@ -2534,7 +2534,7 @@ function ComparisonGraph({ graphData, onCompareVideo }) {
             >
                 <SpatialNode
                   label={country.name.toUpperCase()}
-                  subLabel={isActiveCountry ? 'RELATED FEED' : ''}
+                  subLabel={isActiveCountry ? '관련 영상' : ''}
                   tone={country.tone}
                   flagCode={countryCode}
                   size={isActiveCountry ? 0.48 : 0.42}
