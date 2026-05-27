@@ -169,6 +169,8 @@ function normalizeKeyword(keyword) {
       keywordText: keyword,
       keywordType: '',
       score: null,
+      occurrenceCount: null,
+      sentenceCount: null,
     }
   }
 
@@ -186,6 +188,8 @@ function normalizeKeyword(keyword) {
       '',
     keywordType: keyword.keyword_type || keyword.keywordType || '',
     score: Number(keyword.score),
+    occurrenceCount: Number(keyword.occurrence_count ?? keyword.occurrenceCount),
+    sentenceCount: Number(keyword.sentence_count ?? keyword.sentenceCount),
   }
 }
 
@@ -289,12 +293,37 @@ function hasAnalysisResultShape(source) {
     'summary_text' in source ||
     'summaryText' in source ||
     'tone_label' in source ||
-    'toneLabel' in source
+    'toneLabel' in source ||
+    'keywords' in source ||
+    'emotion_keywords' in source ||
+    'emotionKeywords' in source ||
+    'focus_keywords' in source ||
+    'focusKeywords' in source ||
+    'sentence_labels' in source ||
+    'sentenceLabels' in source
   )
 }
 
-function normalizeAnalysisResult(source) {
+function extractAnalysisResultBody(source) {
   const responseBody = extractResponseBody(source) || {}
+
+  if (hasAnalysisResultShape(responseBody)) {
+    return responseBody
+  }
+
+  const nestedCandidates = [
+    responseBody.analysis_result,
+    responseBody.analysisResult,
+    responseBody.analysis,
+    responseBody.result,
+    responseBody.data,
+  ]
+
+  return nestedCandidates.find((candidate) => hasAnalysisResultShape(candidate)) || responseBody
+}
+
+function normalizeAnalysisResult(source) {
+  const responseBody = extractAnalysisResultBody(source)
   const neutralityScoreValue = responseBody.neutrality_score ?? responseBody.neutralityScore
   const rawSentenceLabels = pickArray(responseBody, ['sentence_labels', 'sentenceLabels'])
   const normalizedKeywords = (Array.isArray(responseBody.keywords) ? responseBody.keywords : [])
@@ -344,10 +373,18 @@ function normalizeAnalysisResult(source) {
     overallBiasScore: normalizeAnalysisScore(responseBody.overall_bias_score ?? responseBody.overallBiasScore),
     opinionScore: normalizeAnalysisScore(responseBody.opinion_score ?? responseBody.opinionScore),
     emotionScore: normalizeAnalysisScore(responseBody.emotion_score ?? responseBody.emotionScore),
+    emotionExpressionCount: normalizeAnalysisScore(
+      responseBody.emotion_expression_count ?? responseBody.emotionExpressionCount ?? responseBody.emotion_count,
+    ),
+    emotionSentenceCount: normalizeAnalysisScore(
+      responseBody.emotion_sentence_count ??
+        responseBody.emotionSentenceCount ??
+        responseBody.emotion_detected_sentence_count,
+    ),
     anonymousSourceScore: normalizeAnalysisScore(
       responseBody.anonymous_source_score ?? responseBody.anonymousSourceScore,
     ),
-    factRatio: normalizeAnalysisScore(responseBody.fact_ratio),
+    factRatio: normalizeAnalysisScore(responseBody.fact_ratio ?? responseBody.factRatio),
     headlineBodyGapScore: normalizeAnalysisScore(
       responseBody.headline_body_gap_score ?? responseBody.headlineBodyGapScore,
     ),
@@ -363,15 +400,15 @@ function normalizeAnalysisResult(source) {
       neutralityScoreValue === null || neutralityScoreValue === undefined
         ? null
         : normalizeAnalysisScore(neutralityScoreValue),
-    summaryText: responseBody.summary_text || '',
-    perspectiveSummary: responseBody.perspective_summary || '',
-    evidenceSummary: responseBody.evidence_summary || '',
+    summaryText: responseBody.summary_text || responseBody.summaryText || '',
+    perspectiveSummary: responseBody.perspective_summary || responseBody.perspectiveSummary || '',
+    evidenceSummary: responseBody.evidence_summary || responseBody.evidenceSummary || '',
     scoreReasonSummary:
       responseBody.score_reason_summary ||
       responseBody.scoreReasonSummary ||
       '',
-    scoreEvidence: responseBody.score_evidence || '',
-    toneLabel: responseBody.tone_label || '',
+    scoreEvidence: responseBody.score_evidence || responseBody.scoreEvidence || '',
+    toneLabel: responseBody.tone_label || responseBody.toneLabel || '',
     keywords: normalizedKeywords,
     focusKeywords: (Array.isArray(responseBody.focus_keywords ?? responseBody.focusKeywords)
       ? responseBody.focus_keywords ?? responseBody.focusKeywords
@@ -383,10 +420,15 @@ function normalizeAnalysisResult(source) {
     sentenceLabels: rawSentenceLabels
       .map((label, index) => normalizeSentenceLabel(label, index))
       .filter(Boolean),
-    highlightSpans: (Array.isArray(responseBody.highlight_spans) ? responseBody.highlight_spans : [])
+    highlightSpans: (Array.isArray(responseBody.highlight_spans ?? responseBody.highlightSpans)
+      ? responseBody.highlight_spans ?? responseBody.highlightSpans
+      : []
+    )
       .map((span, index) => normalizeHighlightSpan(span, index))
       .filter(Boolean),
-    evidences: Array.isArray(responseBody.evidences) ? responseBody.evidences : [],
+    evidences: Array.isArray(responseBody.evidences ?? responseBody.evidenceItems)
+      ? responseBody.evidences ?? responseBody.evidenceItems
+      : [],
   }
 
   if (typeof console !== 'undefined') {

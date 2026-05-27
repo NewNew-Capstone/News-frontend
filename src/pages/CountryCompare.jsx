@@ -27,6 +27,18 @@ const COMPARISON_SELECTED_VIDEO_KEY = 'comparison-selected-video'
 const USE_COMPARISON_MOCK_DATA = false
 const COMPARISON_RECOMMENDATION_LIMIT = 3
 const COUNTRY_MODEL_CONFIGS = {
+  KR: {
+    url: '/models/lee.glb',
+    bounds: {
+      min: [-0.4601080119609833, -0.95023113489151, -0.18398495018482208],
+      max: [0.4544369876384735, 0.9481990933418274, 0.183196023106575],
+    },
+    orientation: [0, 7.2, 0],
+    inactiveHeight: 3.04,
+    activeHeight: 3.84,
+    inactiveBaseY: -1.38,
+    activeBaseY: -1.74,
+  },
   US: {
     url: '/models/us-presenter.glb',
     bounds: {
@@ -53,6 +65,11 @@ const COUNTRY_MODEL_CONFIGS = {
   },
 }
 const COUNTRY_MODEL_STYLE = {
+  KR: {
+    primary: '#0047a0',
+    secondary: '#cd2e3a',
+    glow: '#a8c7ff',
+  },
   US: {
     primary: '#3182f6',
     secondary: '#77d9d5',
@@ -2515,12 +2532,12 @@ function ComparisonGraph({ graphData, onCompareVideo }) {
               drift={index === 0 ? 1.2 : 2.4}
               isActive={Boolean(activeCountryCode)}
             >
-              <SpatialNode
-                label={country.name.toUpperCase()}
-                subLabel={isActiveCountry ? 'RELATED FEED' : 'CLICK'}
-                tone={country.tone}
-                flagCode={countryCode}
-                size={isActiveCountry ? 0.48 : 0.42}
+                <SpatialNode
+                  label={country.name.toUpperCase()}
+                  subLabel={isActiveCountry ? 'RELATED FEED' : ''}
+                  tone={country.tone}
+                  flagCode={countryCode}
+                  size={isActiveCountry ? 0.48 : 0.42}
                 selected={isActiveCountry}
                 onClick={() => handleCountryClick(countryCode)}
               />

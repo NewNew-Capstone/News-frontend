@@ -98,8 +98,9 @@ export function buildYoutubeThumbnailUrl(videoId, fileName = 'mqdefault.jpg') {
 export function getYoutubeThumbnailSources(src = '', youtubeVideoId = '', options = {}) {
   const initialSrc = typeof src === 'string' ? src.trim() : ''
   const candidates = []
+  const hasValidInitialYoutubeThumbnail = !isYoutubeThumbnailUrl(initialSrc) || normalizeYoutubeVideoId(initialSrc)
 
-  if (initialSrc) {
+  if (initialSrc && hasValidInitialYoutubeThumbnail) {
     candidates.push(initialSrc)
   }
 

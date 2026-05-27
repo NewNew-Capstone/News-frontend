@@ -627,6 +627,44 @@ async function pollAnalysisResult(targetId, accessToken = '') {
   throw new Error('영상 분석 결과를 불러오지 못했습니다.')
 }
 
+function hasKeywordItems(keywords) {
+  return Array.isArray(keywords) && keywords.some((keyword) => keyword?.keywordText)
+}
+
+function mergeOpposingAnalysisPipeline(opposingAnalysis, pipelineAnalysis) {
+  if (!pipelineAnalysis) {
+    return opposingAnalysis
+  }
+
+  const pipelineHasSeparatedKeywords =
+    hasKeywordItems(pipelineAnalysis.focusKeywords) || hasKeywordItems(pipelineAnalysis.emotionKeywords)
+
+  return {
+    ...opposingAnalysis,
+    overallBiasScore: pipelineAnalysis.overallBiasScore ?? opposingAnalysis.overallBiasScore,
+    opinionScore: pipelineAnalysis.opinionScore ?? opposingAnalysis.opinionScore,
+    emotionScore: pipelineAnalysis.emotionScore ?? opposingAnalysis.emotionScore,
+    factRatio: pipelineAnalysis.factRatio ?? opposingAnalysis.factRatio,
+    headlineBodyGapScore: pipelineAnalysis.headlineBodyGapScore ?? opposingAnalysis.headlineBodyGapScore,
+    emotionExpressionCount: pipelineAnalysis.emotionExpressionCount ?? opposingAnalysis.emotionExpressionCount,
+    emotionSentenceCount: pipelineAnalysis.emotionSentenceCount ?? opposingAnalysis.emotionSentenceCount,
+    scoreReasonSummary: pipelineAnalysis.scoreReasonSummary || opposingAnalysis.scoreReasonSummary,
+    scoreEvidence: pipelineAnalysis.scoreEvidence || opposingAnalysis.scoreEvidence,
+    summaryText: pipelineAnalysis.summaryText || opposingAnalysis.summaryText,
+    focusKeywords: hasKeywordItems(pipelineAnalysis.focusKeywords)
+      ? pipelineAnalysis.focusKeywords
+      : opposingAnalysis.focusKeywords,
+    emotionKeywords: hasKeywordItems(pipelineAnalysis.emotionKeywords)
+      ? pipelineAnalysis.emotionKeywords
+      : opposingAnalysis.emotionKeywords,
+    sentenceLabels: pipelineAnalysis.sentenceLabels || opposingAnalysis.sentenceLabels,
+    highlightSpans: pipelineAnalysis.highlightSpans || opposingAnalysis.highlightSpans,
+    evidences: pipelineAnalysis.evidences || opposingAnalysis.evidences,
+    targetId: pipelineAnalysis.targetId ?? opposingAnalysis.targetId,
+    hasSeparatedKeywords: pipelineHasSeparatedKeywords || opposingAnalysis.hasSeparatedKeywords,
+  }
+}
+
 function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = '' }) {
   const [videoDetail, setVideoDetail] = useState(null)
   const [comments, setComments] = useState([])
@@ -712,7 +750,29 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     analysisResult?.opposingSummaryText ||
     analysisResult?.opposingAnalysisSummary ||
     '현재 영상과 다른 관점에서 같은 이슈를 다루는 영상의 분석 결과를 이곳에서 비교합니다. 주관성 점수와 감정 표현, 핵심 주장 차이를 함께 확인할 수 있습니다.'
-  const opposingAnalysisKeywords = (opposingAnalysisResult?.analysisKeywords || []).slice(0, 8)
+  const opposingFocusKeywordItems = (opposingAnalysisResult?.focusKeywords || [])
+    .filter((keyword) => keyword?.keywordText)
+  const legacyOpposingKeywordItems = (opposingAnalysisResult?.analysisKeywords || [])
+    .map((keyword) => {
+      if (typeof keyword === 'string') {
+        return {
+          keywordText: keyword.trim(),
+          keywordType: '',
+          score: null,
+          occurrenceCount: null,
+          sentenceCount: null,
+        }
+      }
+
+      return keyword
+    })
+    .filter((keyword) => keyword?.keywordText)
+  const hasOpposingSeparatedKeywordGroups = Boolean(opposingAnalysisResult?.hasSeparatedKeywords)
+  const visibleOpposingLegacyKeywordItems = legacyOpposingKeywordItems.slice(0, MAX_EXPRESSION_KEYWORDS)
+  const visibleOpposingFocusKeywordItems = opposingFocusKeywordItems.slice(0, MAX_EXPRESSION_KEYWORDS)
+  const visibleOpposingEmotionKeywordItems = (opposingAnalysisResult?.emotionKeywords || [])
+    .filter((keyword) => keyword?.keywordText)
+    .slice(0, MAX_EXPRESSION_KEYWORDS)
   const opposingScoreReasonText =
     opposingAnalysisResult?.scoreReasonSummary ||
     opposingAnalysisResult?.scoreEvidence ||
@@ -1173,7 +1233,18 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
     try {
       const nextOpposingAnalysis = await fetchOpposingIssueVideo(targetVideoId, accessToken)
-      setOpposingAnalysisResult(nextOpposingAnalysis)
+      let enrichedOpposingAnalysis = nextOpposingAnalysis
+
+      if (nextOpposingAnalysis?.targetId) {
+        try {
+          const pipelineAnalysis = await fetchVideoAnalysisResult(nextOpposingAnalysis.targetId, accessToken)
+          enrichedOpposingAnalysis = mergeOpposingAnalysisPipeline(nextOpposingAnalysis, pipelineAnalysis)
+        } catch {
+          enrichedOpposingAnalysis = nextOpposingAnalysis
+        }
+      }
+
+      setOpposingAnalysisResult(enrichedOpposingAnalysis)
     } catch (error) {
       setOpposingAnalysisErrorMessage(
         error instanceof Error
@@ -1706,23 +1777,81 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                             </div>
                           </article>
 
-                      {opposingAnalysisKeywords.length ? (
-                        <article className="video-summary-detail-page__analysis-compact-card video-summary-detail-page__analysis-emotion-card">
-                          <div className="video-summary-detail-page__analysis-compact-header">
-                            <h3>핵심 표현</h3>
+                      <article className="video-summary-detail-page__analysis-compact-card video-summary-detail-page__analysis-emotion-card">
+                        <div className="video-summary-detail-page__analysis-compact-header">
+                          <h3>핵심 표현</h3>
+                        </div>
+
+                        {hasOpposingSeparatedKeywordGroups ? (
+                          <div className="video-summary-detail-page__analysis-expression-groups">
+                            <section className="video-summary-detail-page__analysis-expression-group">
+                              <div className="video-summary-detail-page__analysis-expression-head">
+                                <h4>중점 키워드</h4>
+                                <span>{visibleOpposingFocusKeywordItems.length}개</span>
+                              </div>
+                              {visibleOpposingFocusKeywordItems.length ? (
+                                <div className="video-summary-detail-page__analysis-keyword-cloud video-summary-detail-page__analysis-keyword-cloud--emotion">
+                                  {visibleOpposingFocusKeywordItems.map((keyword) => {
+                                    const keywordMeta = formatFocusKeywordMeta(keyword)
+
+                                    return (
+                                      <span
+                                        key={`opposing-focus-${keyword.keywordText}`}
+                                        className="video-summary-detail-page__analysis-keyword-chip video-summary-detail-page__analysis-keyword-chip--focus"
+                                      >
+                                        <strong>{keyword.keywordText}</strong>
+                                        {keywordMeta ? <em>{keywordMeta}</em> : null}
+                                      </span>
+                                    )
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="video-summary-detail-page__analysis-empty">
+                                  중점 키워드가 없습니다.
+                                </p>
+                              )}
+                            </section>
+
+                            <section className="video-summary-detail-page__analysis-expression-group">
+                              <div className="video-summary-detail-page__analysis-expression-head">
+                                <h4>감정 표현</h4>
+                                <span>{visibleOpposingEmotionKeywordItems.length}개</span>
+                              </div>
+                              {visibleOpposingEmotionKeywordItems.length ? (
+                                <div className="video-summary-detail-page__analysis-keyword-cloud video-summary-detail-page__analysis-keyword-cloud--emotion">
+                                  {visibleOpposingEmotionKeywordItems.map((keyword) => (
+                                    <span
+                                      key={`opposing-${keyword.keywordType}-${keyword.keywordText}`}
+                                      className="video-summary-detail-page__analysis-keyword-chip video-summary-detail-page__analysis-keyword-chip--emotion"
+                                    >
+                                      {keyword.keywordText}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="video-summary-detail-page__analysis-empty">
+                                  감정 표현 키워드가 없습니다.
+                                </p>
+                              )}
+                            </section>
                           </div>
+                        ) : visibleOpposingLegacyKeywordItems.length ? (
                           <div className="video-summary-detail-page__analysis-keyword-cloud video-summary-detail-page__analysis-keyword-cloud--emotion">
-                            {opposingAnalysisKeywords.map((keyword, index) => (
+                            {visibleOpposingLegacyKeywordItems.map((keyword, index) => (
                               <span
-                                key={`${keyword}-${index}`}
+                                key={`opposing-legacy-${keyword.keywordText}-${index}`}
                                 className="video-summary-detail-page__analysis-keyword-chip video-summary-detail-page__analysis-keyword-chip--emotion"
                               >
-                                {keyword}
+                                {keyword.keywordText}
                               </span>
                             ))}
                           </div>
-                        </article>
-                      ) : null}
+                        ) : (
+                          <p className="video-summary-detail-page__analysis-empty">
+                            핵심 표현 키워드가 없습니다.
+                          </p>
+                        )}
+                      </article>
 
                           <p className="video-summary-detail-page__analysis-score-evidence video-summary-detail-page__analysis-score-evidence--opposing">
                             {renderHighlightedEvidenceText(opposingScoreEvidenceText)}

@@ -147,8 +147,82 @@ function normalizeIssueScore(value) {
   return Number.isFinite(numericValue) ? numericValue : null
 }
 
-function normalizeOpposingVideo(body = {}) {
+function normalizeIssueId(value) {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+
+  const numericValue = Number(value)
+
+  return Number.isFinite(numericValue) ? numericValue : String(value).trim()
+}
+
+function normalizePipelineKeyword(keyword) {
+  if (typeof keyword === 'string') {
+    return {
+      keywordText: keyword,
+      keywordType: '',
+      score: null,
+      occurrenceCount: null,
+      sentenceCount: null,
+    }
+  }
+
+  if (!keyword || typeof keyword !== 'object') {
+    return null
+  }
+
   return {
+    keywordText:
+      keyword.keyword_text ||
+      keyword.keywordText ||
+      keyword.keyword ||
+      keyword.text ||
+      keyword.name ||
+      '',
+    keywordType: keyword.keyword_type || keyword.keywordType || '',
+    score: normalizeIssueScore(keyword.score),
+    occurrenceCount: normalizeIssueScore(keyword.occurrence_count ?? keyword.occurrenceCount),
+    sentenceCount: normalizeIssueScore(keyword.sentence_count ?? keyword.sentenceCount),
+  }
+}
+
+function normalizePipelineKeywords(value) {
+  return (Array.isArray(value) ? value : [])
+    .map((keyword) => normalizePipelineKeyword(keyword))
+    .filter((keyword) => keyword?.keywordText)
+}
+
+function pickKeywordArray(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key]
+
+    if (Array.isArray(value)) {
+      return value
+    }
+  }
+
+  return []
+}
+
+function normalizeOpposingVideo(body = {}) {
+  const legacyAnalysisKeywords = pickKeywordArray(body, ['analysisKeywords', 'analysis_keywords'])
+  const normalizedFocusKeywords = normalizePipelineKeywords(
+    pickKeywordArray(body, ['focus_keywords', 'focusKeywords']),
+  )
+  const normalizedEmotionKeywords = normalizePipelineKeywords(
+    pickKeywordArray(body, ['emotion_keywords', 'emotionKeywords']),
+  )
+  const legacyFocusKeywords = normalizePipelineKeywords(legacyAnalysisKeywords)
+  const normalizedOpposingVideo = {
+    targetId: normalizeIssueId(
+      body.targetId ??
+        body.target_id ??
+        body.analysisTargetId ??
+        body.analysis_target_id ??
+        body.opposingTargetId ??
+        body.opposing_target_id,
+    ),
     youtubeVideoId: body.youtubeVideoId || body.youtube_video_id || '',
     title: body.title || '',
     channelName: body.channelName || body.channel_name || '',
@@ -168,10 +242,13 @@ function normalizeOpposingVideo(body = {}) {
     opinionGap: normalizeIssueScore(body.opinionGap ?? body.opinion_gap),
     scoreReasonSummary: body.scoreReasonSummary || body.score_reason_summary || '',
     scoreEvidence: body.scoreEvidence || body.score_evidence || '',
-    analysisKeywords: Array.isArray(body.analysisKeywords ?? body.analysis_keywords)
-      ? body.analysisKeywords ?? body.analysis_keywords
-      : [],
+    analysisKeywords: legacyAnalysisKeywords,
+    hasSeparatedKeywords: Boolean(normalizedFocusKeywords.length || normalizedEmotionKeywords.length),
+    focusKeywords: normalizedFocusKeywords.length ? normalizedFocusKeywords : legacyFocusKeywords,
+    emotionKeywords: normalizedEmotionKeywords,
   }
+
+  return normalizedOpposingVideo
 }
 
 export async function fetchIssueSearchResults({ searchKeyword }, accessToken) {

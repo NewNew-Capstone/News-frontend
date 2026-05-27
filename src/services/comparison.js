@@ -741,7 +741,7 @@ export async function fetchComparisonVideoTarget({ videoId, accessToken } = {}) 
   return {
     videoId: body.youtube_video_id || body.youtubeVideoId || videoId,
     targetId: body.target_id ?? body.targetId ?? null,
-    analysisUrl: body.analysis_url || body.analysisUrl || '',
+    analysisUrl: body.analysis_url || body.analysisUrl || body.analysis_path || body.analysisPath || '',
     analysisAvailable: Boolean(body.analysis_available ?? body.analysisAvailable),
   }
 }

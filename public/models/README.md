@@ -4,6 +4,7 @@ Put local GLB files in this folder using the exact filenames below. GLB files ar
 
 | Usage | Required filename | Notes |
 | --- | --- | --- |
+| Korea node in country comparison graph | `lee.glb` | GLB model used instead of the Korea sphere node. |
 | United States node in country comparison graph | `us-presenter.glb` | Meshy GLB model used instead of the US sphere node. |
 | China node in country comparison graph | `china-presenter.glb` | Meshy GLB model used instead of the China sphere node. |
 | Background object in country comparison graph | `earth.glb` | Low-opacity rotating globe placed behind the comparison nodes. |
