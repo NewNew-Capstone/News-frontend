@@ -2149,7 +2149,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
                   <section className="video-summary-detail-page__analysis-recommendations">
                     <header className="video-summary-detail-page__analysis-recommendations-header">
-                      <h3>유사한 영상 추천</h3>
+                      <h3>실시간 추천 영상</h3>
                       <span>{recommendedVideos.length}개</span>
                     </header>
 
@@ -2163,7 +2163,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                       </div>
                     ) : (
                       <p className="video-summary-detail-page__empty">
-                        지금은 보여드릴 유사한 영상이 없습니다.
+                        지금은 보여드릴 실시간 추천 영상이 없습니다.
                       </p>
                     )}
                   </section>

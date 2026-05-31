@@ -2184,7 +2184,10 @@ function RecommendationVideoCard({ node, countryCode, onClick }) {
             }
           }}
         >
-          비교 보기
+          <span className="comparison-graph-page__recommendation-compare-label">비교 보기</span>
+          <span className="comparison-graph-page__recommendation-compare-label comparison-graph-page__recommendation-compare-label--hover">
+            비교 하기
+          </span>
         </span>
       </button>
     </Html>

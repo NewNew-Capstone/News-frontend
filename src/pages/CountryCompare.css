@@ -978,9 +978,9 @@
 }
 
 .comparison-graph-page__recommendation-compare {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-grid;
+  place-items: center;
+  position: relative;
   min-height: 28px;
   margin: 0 10px 10px;
   border-radius: 999px;
@@ -988,6 +988,42 @@
   color: var(--blue-dark, #1b6ee8);
   font-size: 0.72rem;
   font-weight: 900;
+  overflow: hidden;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.comparison-graph-page__recommendation-compare:hover,
+.comparison-graph-page__recommendation-compare:focus-visible {
+  background: rgba(49, 130, 246, 0.2);
+  color: #0f5fd7;
+  transform: translateY(-1px);
+}
+
+.comparison-graph-page__recommendation-compare-label {
+  grid-area: 1 / 1;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.comparison-graph-page__recommendation-compare-label--hover {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.comparison-graph-page__recommendation-compare:hover .comparison-graph-page__recommendation-compare-label:not(.comparison-graph-page__recommendation-compare-label--hover),
+.comparison-graph-page__recommendation-compare:focus-visible .comparison-graph-page__recommendation-compare-label:not(.comparison-graph-page__recommendation-compare-label--hover) {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.comparison-graph-page__recommendation-compare:hover .comparison-graph-page__recommendation-compare-label--hover,
+.comparison-graph-page__recommendation-compare:focus-visible .comparison-graph-page__recommendation-compare-label--hover {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .comparison-graph-page__video-html-card {
