@@ -1,6 +1,6 @@
 import { Environment, Html, Text, useGLTF } from '@react-three/drei'
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as THREE from 'three'
 import Navbar from '../components/Navbar'
@@ -26,6 +26,7 @@ const COMPARISON_COUNTRY_CODES = ['KR', 'US', 'CN']
 const COMPARISON_SELECTED_VIDEO_KEY = 'comparison-selected-video'
 const USE_COMPARISON_MOCK_DATA = false
 const COMPARISON_RECOMMENDATION_LIMIT = 3
+const DEFAULT_COMPARISON_SEARCH_KEYWORD = '트럼프-대만'
 const COUNTRY_MODEL_CONFIGS = {
   KR: {
     url: '/models/lee.glb',
@@ -159,7 +160,7 @@ function isTrumpTaiwanKeyword(keyword = '') {
 }
 
 function createYoutubeThumbnailUrl(videoId) {
-  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+  return `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`
 }
 
 function getYoutubeWatchUrl(video) {
@@ -732,14 +733,15 @@ function orderSectionsBySelectedCountry(sections = [], selectedCountryCode = 'KR
 }
 
 function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
-  const [query, setQuery] = useState('')
-  const [activeKeyword, setActiveKeyword] = useState('')
+  const hasRunDefaultSearchRef = useRef(false)
+  const [query, setQuery] = useState(DEFAULT_COMPARISON_SEARCH_KEYWORD)
+  const [activeKeyword, setActiveKeyword] = useState(DEFAULT_COMPARISON_SEARCH_KEYWORD)
   const [issueKeywords, setIssueKeywords] = useState(fallbackKeywords)
   const [sections, setSections] = useState(() => normalizeSections([]))
   const [isHomeLoading, setIsHomeLoading] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const [resultTitle, setResultTitle] = useState('검색어로 국가별 비교 영상을 찾아보세요')
+  const [resultTitle, setResultTitle] = useState(`"${DEFAULT_COMPARISON_SEARCH_KEYWORD}" 국가별 검색 결과`)
 
   useEffect(() => {
     if (!USE_COMPARISON_MOCK_DATA) {
@@ -755,7 +757,7 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
     return undefined
   }, [])
 
-  const runSearch = async (keyword) => {
+  const runSearch = useCallback(async (keyword) => {
     const trimmedKeyword = normalizeSearchKeyword(keyword)
 
     if (!trimmedKeyword) {
@@ -797,12 +799,21 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
     } finally {
       setIsSearching(false)
     }
-  }
+  }, [accessToken])
 
   const handleSearchSubmit = (event) => {
     event.preventDefault()
     runSearch(query)
   }
+
+  useEffect(() => {
+    if (hasRunDefaultSearchRef.current) {
+      return
+    }
+
+    hasRunDefaultSearchRef.current = true
+    runSearch(DEFAULT_COMPARISON_SEARCH_KEYWORD)
+  }, [runSearch])
 
   const handleOpenVideo = (videoId, video = null) => {
     if (!videoId) {
@@ -816,7 +827,6 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
     goToHashRoute(`comparison/graph/${encodeURIComponent(videoId)}`)
   }
 
-  const hasAnyVideos = sections.some((section) => section.videos.length)
   const isLoading = isHomeLoading || isSearching
 
   return (
@@ -859,10 +869,6 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
               </div>
               <p>영상 카드를 선택하면 국가별 비교 그래프로 이동합니다.</p>
             </header>
-
-            {!isLoading && !hasAnyVideos ? (
-              <StatePanel title="아직 검색 전입니다" message="검색어를 입력하거나 추천 키워드를 선택하면 국가별 영상을 불러옵니다." />
-            ) : null}
 
             <div className="country-compare-page__country-stack">
               {orderSectionsBySelectedCountry(sections, 'KR').map((section) => (
@@ -1394,7 +1400,7 @@ function getVideoThumbnailSource(node) {
   }
 
   if (node?.videoId) {
-    return `https://i.ytimg.com/vi/${node.videoId}/hqdefault.jpg`
+    return `https://i.ytimg.com/vi/${node.videoId}/mqdefault.jpg`
   }
 
   return ''
@@ -1659,7 +1665,12 @@ function CurvedVideoLabel({ node, countryCode }) {
       >
         <div className="comparison-graph-page__sphere-thumbnail">
           {thumbnailSource ? (
-            <img src={thumbnailSource} alt="" draggable="false" />
+            <YoutubeThumbnail
+              src={thumbnailSource}
+              youtubeVideoId={node?.videoId}
+              alt=""
+              placeholder={<span>{country.name}</span>}
+            />
           ) : (
             <span>{country.name}</span>
           )}

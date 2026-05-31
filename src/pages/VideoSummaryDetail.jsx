@@ -167,8 +167,8 @@ function formatMetricPercent(value) {
 }
 
 function formatFocusKeywordMeta(keyword) {
-  const occurrenceCount = Number(keyword?.occurrenceCount)
-  const sentenceCount = Number(keyword?.sentenceCount)
+  const occurrenceCount = Number(keyword?.occurrenceCount ?? keyword?.occurrence_count)
+  const sentenceCount = Number(keyword?.sentenceCount ?? keyword?.sentence_count)
   const metaItems = []
 
   if (Number.isFinite(sentenceCount) && sentenceCount > 0) {
@@ -645,37 +645,25 @@ function hasKeywordItems(keywords) {
   return Array.isArray(keywords) && keywords.some((keyword) => keyword?.keywordText)
 }
 
-function mergeOpposingAnalysisPipeline(opposingAnalysis, pipelineAnalysis) {
-  if (!pipelineAnalysis) {
-    return opposingAnalysis
-  }
-
-  const pipelineHasSeparatedKeywords =
-    hasKeywordItems(pipelineAnalysis.focusKeywords) || hasKeywordItems(pipelineAnalysis.emotionKeywords)
+function buildOpposingAnalysisFromVideo(opposingVideo, pipelineAnalysis, currentAnalysis) {
+  const currentOpinionScore = Number(currentAnalysis?.opinionScore)
+  const opposingOpinionScore = Number(pipelineAnalysis?.opinionScore)
+  const opinionGap =
+    Number.isFinite(currentOpinionScore) && Number.isFinite(opposingOpinionScore)
+      ? Math.abs(currentOpinionScore - opposingOpinionScore)
+      : null
 
   return {
-    ...opposingAnalysis,
-    overallBiasScore: pipelineAnalysis.overallBiasScore ?? opposingAnalysis.overallBiasScore,
-    opinionScore: pipelineAnalysis.opinionScore ?? opposingAnalysis.opinionScore,
-    emotionScore: pipelineAnalysis.emotionScore ?? opposingAnalysis.emotionScore,
-    factRatio: pipelineAnalysis.factRatio ?? opposingAnalysis.factRatio,
-    headlineBodyGapScore: pipelineAnalysis.headlineBodyGapScore ?? opposingAnalysis.headlineBodyGapScore,
-    emotionExpressionCount: pipelineAnalysis.emotionExpressionCount ?? opposingAnalysis.emotionExpressionCount,
-    emotionSentenceCount: pipelineAnalysis.emotionSentenceCount ?? opposingAnalysis.emotionSentenceCount,
-    scoreReasonSummary: pipelineAnalysis.scoreReasonSummary || opposingAnalysis.scoreReasonSummary,
-    scoreEvidence: pipelineAnalysis.scoreEvidence || opposingAnalysis.scoreEvidence,
-    summaryText: pipelineAnalysis.summaryText || opposingAnalysis.summaryText,
-    focusKeywords: hasKeywordItems(pipelineAnalysis.focusKeywords)
-      ? pipelineAnalysis.focusKeywords
-      : opposingAnalysis.focusKeywords,
-    emotionKeywords: hasKeywordItems(pipelineAnalysis.emotionKeywords)
-      ? pipelineAnalysis.emotionKeywords
-      : opposingAnalysis.emotionKeywords,
-    sentenceLabels: pipelineAnalysis.sentenceLabels || opposingAnalysis.sentenceLabels,
-    highlightSpans: pipelineAnalysis.highlightSpans || opposingAnalysis.highlightSpans,
-    evidences: pipelineAnalysis.evidences || opposingAnalysis.evidences,
-    targetId: pipelineAnalysis.targetId ?? opposingAnalysis.targetId,
-    hasSeparatedKeywords: pipelineHasSeparatedKeywords || opposingAnalysis.hasSeparatedKeywords,
+    ...pipelineAnalysis,
+    targetId: pipelineAnalysis?.targetId ?? opposingVideo?.targetId ?? null,
+    youtubeVideoId: opposingVideo?.youtubeVideoId || pipelineAnalysis?.youtubeVideoId || '',
+    title: opposingVideo?.title || pipelineAnalysis?.title || '다른 관점 영상',
+    channelName: opposingVideo?.channelName || pipelineAnalysis?.channelName || '',
+    thumbnailUrl: opposingVideo?.thumbnailUrl || pipelineAnalysis?.thumbnailUrl || '',
+    summaryText: pipelineAnalysis?.summaryText || opposingVideo?.description || '',
+    originalUrl: opposingVideo?.originalUrl || buildYoutubeWatchUrl(opposingVideo?.youtubeVideoId || ''),
+    opinionGap,
+    hasSeparatedKeywords: hasKeywordItems(pipelineAnalysis?.focusKeywords) || hasKeywordItems(pipelineAnalysis?.emotionKeywords),
   }
 }
 
@@ -1111,6 +1099,30 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   }, [analysisResult])
 
   useEffect(() => {
+    if (!opposingAnalysisResult || typeof console === 'undefined') {
+      return
+    }
+
+    console.groupCollapsed('[OpposingAnalysisDetail] rendered keyword state')
+    console.log('opposingAnalysisResult:', opposingAnalysisResult)
+    console.log('raw/normalized focusKeywords:', opposingAnalysisResult.focusKeywords)
+    console.log('raw/normalized emotionKeywords:', opposingAnalysisResult.emotionKeywords)
+    console.log('legacy analysisKeywords:', opposingAnalysisResult.analysisKeywords)
+    console.log('visible opposing focus keywords:', visibleOpposingFocusKeywordItems)
+    console.log('visible opposing emotion keywords:', visibleOpposingEmotionKeywordItems)
+    console.log(
+      'focus keyword meta labels:',
+      visibleOpposingFocusKeywordItems.map((keyword) => ({
+        keywordText: keyword.keywordText,
+        occurrenceCount: keyword.occurrenceCount ?? keyword.occurrence_count,
+        sentenceCount: keyword.sentenceCount ?? keyword.sentence_count,
+        displayMeta: formatFocusKeywordMeta(keyword),
+      })),
+    )
+    console.groupEnd()
+  }, [opposingAnalysisResult, visibleOpposingFocusKeywordItems, visibleOpposingEmotionKeywordItems])
+
+  useEffect(() => {
     if (!isAnalysisModalOpen) {
       return undefined
     }
@@ -1334,16 +1346,89 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     setOpposingAnalysisErrorMessage('')
 
     try {
-      const nextOpposingAnalysis = await fetchOpposingIssueVideo(targetVideoId, accessToken)
-      let enrichedOpposingAnalysis = nextOpposingAnalysis
+      if (typeof console !== 'undefined') {
+        console.groupCollapsed('[OpposingAnalysisDetail] find opposing video with original API')
+        console.log('request targetVideoId:', targetVideoId)
+        console.log('analysisTargetId:', analysisTargetId)
+        console.log('analysisResult targetId:', analysisResult?.targetId)
+        console.log('videoDetail targetId:', videoDetail?.targetId)
+        console.log('videoDetail youtubeVideoId:', videoDetail?.youtubeVideoId)
+        console.groupEnd()
+      }
 
-      if (nextOpposingAnalysis?.targetId) {
+      const nextOpposingVideo = await fetchOpposingIssueVideo(targetVideoId, accessToken)
+
+      if (!nextOpposingVideo?.youtubeVideoId) {
+        throw new Error('다른 관점 영상 ID가 없어 분석 결과를 불러올 수 없습니다.')
+      }
+
+      if (typeof console !== 'undefined') {
+        console.groupCollapsed('[OpposingAnalysisDetail] opposing video found by /issues/opposing')
+        console.log('nextOpposingVideo:', nextOpposingVideo)
+        console.log('opposing youtubeVideoId:', nextOpposingVideo.youtubeVideoId)
+        console.log('opposing existing targetId:', nextOpposingVideo.targetId)
+        console.groupEnd()
+      }
+
+      let pipelineAnalysis = null
+      let nextTargetId = nextOpposingVideo.targetId ?? null
+
+      if (nextTargetId) {
         try {
-          const pipelineAnalysis = await fetchVideoAnalysisResult(nextOpposingAnalysis.targetId, accessToken)
-          enrichedOpposingAnalysis = mergeOpposingAnalysisPipeline(nextOpposingAnalysis, pipelineAnalysis)
-        } catch {
-          enrichedOpposingAnalysis = nextOpposingAnalysis
+          if (typeof console !== 'undefined') {
+            console.groupCollapsed('[OpposingAnalysisDetail] fetch existing opposing /api/v1/analysis/{targetId}')
+            console.log('targetId:', nextTargetId)
+            console.groupEnd()
+          }
+
+          pipelineAnalysis = await pollAnalysisResult(nextTargetId, accessToken)
+        } catch (error) {
+          if (typeof console !== 'undefined') {
+            console.groupCollapsed('[OpposingAnalysisDetail] existing opposing analysis fetch failed; will call analyze API')
+            console.log('targetId:', nextTargetId)
+            console.log('error:', error)
+            console.groupEnd()
+          }
         }
+      }
+
+      if (!pipelineAnalysis) {
+        if (typeof console !== 'undefined') {
+          console.groupCollapsed('[OpposingAnalysisDetail] call same analyze API as main video')
+          console.log('POST /api/v1/analysis/analyze/{youtubeId}?clustering=true youtubeId:', nextOpposingVideo.youtubeVideoId)
+          console.groupEnd()
+        }
+
+        const startedAnalysis = await startVideoAnalysis(nextOpposingVideo.youtubeVideoId, accessToken)
+        nextTargetId =
+          startedAnalysis.targetId ??
+          startedAnalysis.analysisResult?.targetId ??
+          nextTargetId
+
+        if (startedAnalysis.analysisResult) {
+          pipelineAnalysis = startedAnalysis.analysisResult
+        } else if (nextTargetId) {
+          pipelineAnalysis = await pollAnalysisResult(nextTargetId, accessToken)
+        }
+      }
+
+      if (!pipelineAnalysis) {
+        throw new Error('다른 관점 영상 분석 결과를 불러오지 못했습니다.')
+      }
+
+      const enrichedOpposingAnalysis = buildOpposingAnalysisFromVideo(
+        nextOpposingVideo,
+        pipelineAnalysis,
+        analysisResult,
+      )
+
+      if (typeof console !== 'undefined') {
+        console.groupCollapsed('[OpposingAnalysisDetail] final opposing result from same analysis API')
+        console.log('enrichedOpposingAnalysis:', enrichedOpposingAnalysis)
+        console.log('final focusKeywords:', enrichedOpposingAnalysis?.focusKeywords)
+        console.log('final emotionKeywords:', enrichedOpposingAnalysis?.emotionKeywords)
+        console.log('final targetId:', enrichedOpposingAnalysis?.targetId)
+        console.groupEnd()
       }
 
       setOpposingAnalysisResult(enrichedOpposingAnalysis)

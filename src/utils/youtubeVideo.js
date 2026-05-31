@@ -1,5 +1,6 @@
 const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/
 const YOUTUBE_THUMBNAIL_HOSTS = new Set(['i.ytimg.com', 'img.youtube.com'])
+const YOUTUBE_THUMBNAIL_FALLBACK_FILES = ['mqdefault.jpg', 'default.jpg', 'hqdefault.jpg']
 
 function normalizeHost(hostname) {
   return hostname.toLowerCase().replace(/^www\./, '')
@@ -98,18 +99,21 @@ export function buildYoutubeThumbnailUrl(videoId, fileName = 'mqdefault.jpg') {
 export function getYoutubeThumbnailSources(src = '', youtubeVideoId = '', options = {}) {
   const initialSrc = typeof src === 'string' ? src.trim() : ''
   const candidates = []
-  const hasValidInitialYoutubeThumbnail = !isYoutubeThumbnailUrl(initialSrc) || normalizeYoutubeVideoId(initialSrc)
+  const isInitialYoutubeThumbnail = isYoutubeThumbnailUrl(initialSrc)
+  const normalizedVideoId = normalizeYoutubeVideoId(youtubeVideoId || initialSrc)
 
-  if (initialSrc && hasValidInitialYoutubeThumbnail) {
+  if (normalizedVideoId && (options.allowGenerated === true || youtubeVideoId || isInitialYoutubeThumbnail)) {
+    YOUTUBE_THUMBNAIL_FALLBACK_FILES.forEach((fileName) => {
+      candidates.push(buildYoutubeThumbnailUrl(normalizedVideoId, fileName))
+    })
+  }
+
+  if (initialSrc && !isInitialYoutubeThumbnail) {
     candidates.push(initialSrc)
   }
 
-  const normalizedVideoId = normalizeYoutubeVideoId(youtubeVideoId || initialSrc)
-
-  if (normalizedVideoId && (options.allowGenerated === true || youtubeVideoId || isYoutubeThumbnailUrl(initialSrc))) {
-    candidates.push(buildYoutubeThumbnailUrl(normalizedVideoId, 'hqdefault.jpg'))
-    candidates.push(buildYoutubeThumbnailUrl(normalizedVideoId, 'mqdefault.jpg'))
-    candidates.push(buildYoutubeThumbnailUrl(normalizedVideoId, 'default.jpg'))
+  if (initialSrc && isInitialYoutubeThumbnail && !normalizedVideoId) {
+    candidates.push(initialSrc)
   }
 
   return candidates.filter((candidate, index, array) => candidate && array.indexOf(candidate) === index)
