@@ -274,7 +274,7 @@ function createMockComparisonGraph(videoId, selectedVideoOverride = null) {
         nodeType: 'related',
         reasons: [
           `${section.countryLocalLabel} 관점에서 트럼프와 대만 이슈를 다룬 비교 후보입니다.`,
-          '실제 그래프 API 실패 시 표시하는 트럼프 대만 고정 목데이터입니다.',
+          '같은 이슈 키워드와 국가별 관점 차이를 기준으로 연결했습니다.',
         ],
         sharedKeywords: ['트럼프', '대만', '미중 갈등'],
         sharedEntities: ['트럼프', '대만', '중국', '미국'],
@@ -299,8 +299,8 @@ function createMockComparisonGraph(videoId, selectedVideoOverride = null) {
       weight: edgeWeights[index] || 0.68,
     })),
     connectionReasons: [
-      '테스트용 mock 데이터입니다. compare-on-click API 응답이 성공하면 실제 응답이 우선 표시됩니다.',
-      '트럼프 대만 키워드에 맞춘 국가별 비교 후보 3개씩을 연결했습니다.',
+      '같은 이슈 클러스터와 공유 키워드를 기준으로 국가별 비교 후보를 연결했습니다.',
+      '트럼프 대만 키워드에 맞춘 국가별 비교 후보를 연결했습니다.',
     ],
     countryPerspectives: [
       { countryCode: 'KR', summary: '한국 관점은 대만 해협 긴장과 한반도 안보 파장을 함께 봅니다.' },
@@ -751,7 +751,7 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
     setIsHomeLoading(true)
     setIssueKeywords(fallbackKeywords)
     setSections(createMockComparisonHomeSections())
-    setErrorMessage('테스트용 mock 국가별 추천 영상을 표시합니다.')
+    setErrorMessage('')
     setIsHomeLoading(false)
 
     return undefined
@@ -2227,19 +2227,81 @@ function SelectedVideoCard({ video }) {
   )
 }
 
+function formatInsightKeywords(keywords, fallback = '키워드 정보 없음') {
+  const normalizedKeywords = Array.isArray(keywords)
+    ? keywords.map((keyword) => getKeywordText(keyword)).filter(Boolean)
+    : []
+
+  return normalizedKeywords.length ? normalizedKeywords.slice(0, 4).join(', ') : fallback
+}
+
+function sanitizeRecommendationReasons(reasons = []) {
+  return (Array.isArray(reasons) ? reasons : [])
+    .map((reason) => String(reason || '').trim())
+    .filter((reason) => reason && !/mock|목데이터|테스트용|API 실패/i.test(reason))
+}
+
+function sanitizeInsightText(text = '') {
+  const normalizedText = String(text || '').trim()
+
+  return normalizedText && !/mock|목데이터|테스트용|API 실패/i.test(normalizedText) ? normalizedText : ''
+}
+
+function formatSimilarityScore(score) {
+  const numericScore = Number(score)
+
+  return Number.isFinite(numericScore) && numericScore > 0 ? numericScore.toFixed(2) : ''
+}
+
 function createFallbackComparisonInsight({ selectedVideo, comparedVideo, relationEdge }) {
   const selectedCountry = getCountryMeta(selectedVideo?.countryCode)
   const comparedCountry = getCountryMeta(comparedVideo?.countryCode)
-  const sharedKeywords = relationEdge?.keywords?.length ? relationEdge.keywords.join(', ') : '트럼프, 대만'
+  const sharedKeywords = formatInsightKeywords(relationEdge?.keywords, '트럼프, 대만')
+  const selectedFocus = formatInsightKeywords(selectedVideo?.focusKeywords, '기준 영상의 제목과 키워드')
+  const comparedFocus = formatInsightKeywords(comparedVideo?.focusKeywords, '비교 영상의 제목과 키워드')
+  const sanitizedReasons = sanitizeRecommendationReasons(relationEdge?.reasons)
+  const similarityScore = formatSimilarityScore(relationEdge?.similarityScore)
+  const issueReason = sanitizedReasons.find((reason) => reason.includes('이슈')) || sanitizedReasons[0]
+  const connectionReason = sanitizedReasons.join(' ') || '공유 키워드, 내용 유사도, 국가별 관점 차이를 기준으로 비교 대상으로 연결했습니다.'
+  const comparisonRows = [
+    {
+      label: '이슈 초점',
+      selected: selectedFocus,
+      compared: comparedFocus,
+      detail: `${selectedCountry.localName} 영상은 선택 영상의 문제의식에서 출발하고, ${comparedCountry.localName} 영상은 자국 관점에서 같은 이슈를 해석합니다.`,
+    },
+    {
+      label: '공유 근거',
+      selected: sharedKeywords,
+      compared: sharedKeywords,
+      detail: issueReason || '두 영상은 같은 이슈와 공유 키워드를 기준으로 비교 후보가 되었습니다.',
+    },
+    {
+      label: '내용 유사도',
+      selected: '기준 영상 내용',
+      compared: similarityScore ? `유사도 ${similarityScore}` : '내용 유사도 기준 비교',
+      detail: similarityScore
+        ? `제목, 키워드, 분석 정보를 함께 비교했을 때 내용 유사도는 약 ${similarityScore}입니다.`
+        : '제목과 키워드가 같은 이슈를 가리키는지 비교했습니다.',
+    },
+    {
+      label: '관점 차이',
+      selected: `${selectedCountry.localName} 관점`,
+      compared: `${comparedCountry.localName} 관점`,
+      detail: `${selectedCountry.localName} 영상과 ${comparedCountry.localName} 영상은 같은 사건을 다루지만, 강조하는 이해관계와 표현 톤이 다르게 나타납니다.`,
+    },
+  ]
 
   return {
-    summary: `${selectedCountry.localName} 영상은 "${selectedVideo?.title || '원본 영상'}"의 맥락을 중심으로 이슈를 설명하고, ${comparedCountry.localName} 영상은 "${comparedVideo?.title || '비교 영상'}" 관점에서 같은 이슈를 다룹니다. 두 영상은 ${sharedKeywords} 키워드를 공유하지만, 강조하는 국가적 이해관계와 표현 톤이 다릅니다.`,
+    summary: `${selectedCountry.localName} 영상은 "${selectedVideo?.title || '원본 영상'}"의 맥락을 중심으로 이슈를 설명하고, ${comparedCountry.localName} 영상은 "${comparedVideo?.title || '비교 영상'}" 관점에서 같은 이슈를 다룹니다. 두 영상은 ${sharedKeywords} 키워드를 공유하지만, 강조하는 이해관계와 표현 톤이 다릅니다.`,
+    comparisonRows,
     points: [
-      `${selectedCountry.localName} 영상의 초점: ${selectedVideo?.focusKeywords?.slice(0, 3).join(', ') || '선택 영상의 제목/키워드 맥락'}`,
-      `${comparedCountry.localName} 영상의 초점: ${comparedVideo?.focusKeywords?.slice(0, 3).join(', ') || '비교 영상의 제목/키워드 맥락'}`,
-      relationEdge?.reasons?.[0] || '두 영상은 같은 이슈를 서로 다른 국가 관점에서 설명합니다.',
+      `${selectedCountry.localName} 영상의 초점: ${selectedFocus}`,
+      `${comparedCountry.localName} 영상의 초점: ${comparedFocus}`,
+      `공유 키워드: ${sharedKeywords}`,
+      similarityScore ? `내용 유사도: ${similarityScore}` : '두 영상은 같은 이슈를 서로 다른 국가 관점에서 설명합니다.',
     ],
-    recommendationReason: relationEdge?.reasons?.join(' ') || '공유 키워드와 국가별 관점 차이를 기준으로 비교 대상으로 연결했습니다.',
+    recommendationReason: connectionReason,
   }
 }
 
@@ -2749,12 +2811,24 @@ function mergeVideoAnalysis(video, analysisTarget, analysisResult) {
     analysisUrl: analysisTarget?.analysisUrl || video.analysisUrl,
     focusKeywords: focusKeywords.length ? focusKeywords : video.focusKeywords,
     emotionKeywords: emotionKeywords.length ? emotionKeywords : video.emotionKeywords,
+    analysisSummary: analysisResult?.summaryText || video.analysisSummary || '',
+    perspectiveSummary: analysisResult?.perspectiveSummary || video.perspectiveSummary || '',
+    evidenceSummary: analysisResult?.evidenceSummary || video.evidenceSummary || '',
+    scoreReasonSummary: analysisResult?.scoreReasonSummary || video.scoreReasonSummary || '',
+    toneLabel: analysisResult?.toneLabel || video.toneLabel || '',
+    factRatio: analysisResult?.factRatio ?? video.factRatio ?? null,
+    neutralityScore: analysisResult?.neutralityScore ?? video.neutralityScore ?? null,
+    headlineBodyGapLabel: analysisResult?.headlineBodyGapLabel || video.headlineBodyGapLabel || '',
   }
 }
 
 async function fetchVideoExpressionAnalysis(video, accessToken) {
   if (!video?.videoId && !video?.targetId) {
     return video
+  }
+
+  if (!accessToken) {
+    return mergeVideoAnalysis(video, null, null)
   }
 
   let analysisTarget = null
@@ -2784,6 +2858,7 @@ async function fetchVideoExpressionAnalysis(video, accessToken) {
 
 function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }) {
   const [comparisonInsight, setComparisonInsight] = useState(null)
+  const [comparisonInsightStatus, setComparisonInsightStatus] = useState('loading')
   const [analysisVideos, setAnalysisVideos] = useState({ key: '', selected: null, compared: null })
 
   const relationEdge = findComparisonEdge(graphData, comparedVideo)
@@ -2806,10 +2881,38 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
         })
       : null
   ), [comparedDisplayVideo, relationEdge, selectedDisplayVideo])
-  const displayedInsight = comparisonInsight || fallbackInsight
+  const displayedInsight = useMemo(() => {
+    if (comparisonInsightStatus === 'loading') {
+      return null
+    }
+
+    if (!comparisonInsight) {
+      return fallbackInsight
+    }
+
+    const sanitizedSummary = sanitizeInsightText(comparisonInsight.summary)
+    const sanitizedPoints = sanitizeRecommendationReasons(comparisonInsight.points)
+
+    return {
+      ...fallbackInsight,
+      ...comparisonInsight,
+      summary: sanitizedSummary || fallbackInsight?.summary || '',
+      points: sanitizedPoints.length ? sanitizedPoints : fallbackInsight?.points || [],
+      comparisonRows: comparisonInsight.comparisonRows?.length
+        ? comparisonInsight.comparisonRows
+        : fallbackInsight?.comparisonRows || [],
+      recommendationReason: sanitizeInsightText(comparisonInsight.recommendationReason) || fallbackInsight?.recommendationReason || '',
+    }
+  }, [comparisonInsight, comparisonInsightStatus, fallbackInsight])
+  const isInsightLoading = comparisonInsightStatus === 'loading'
+  const insightBadgeText = isInsightLoading
+    ? '요약 중'
+    : comparisonInsight?.llmUsed
+      ? 'LLM 응답'
+      : '기본 요약'
 
   useEffect(() => {
-    if (!graphData?.selectedVideo || !comparedVideo || graphData.isMock) {
+    if (!graphData?.selectedVideo || !comparedVideo) {
       return undefined
     }
 
@@ -2828,7 +2931,7 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
     return () => {
       isCancelled = true
     }
-  }, [accessToken, analysisKey, comparedVideo, graphData?.isMock, graphData?.selectedVideo])
+  }, [accessToken, analysisKey, comparedVideo, graphData?.selectedVideo])
 
   useEffect(() => {
     if (!graphData?.selectedVideo || !comparedVideo) {
@@ -2837,32 +2940,42 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
 
     let isCancelled = false
 
-    if (graphData.isMock) {
-      return undefined
-    }
+    setComparisonInsight(null)
+    setComparisonInsightStatus('loading')
 
     requestComparisonInsight({
-      selectedVideo: graphData.selectedVideo,
-      comparedVideo,
+      selectedVideo: selectedDisplayVideo,
+      comparedVideo: comparedDisplayVideo,
       relationEdge,
-      graphData,
+      graphData: displayGraphData,
       accessToken,
     })
       .then((nextInsight) => {
-        if (!isCancelled && (nextInsight.summary || nextInsight.points.length || nextInsight.recommendationReason)) {
-          setComparisonInsight(nextInsight)
+        if (!isCancelled && (nextInsight.summary || nextInsight.points.length || nextInsight.comparisonRows?.length || nextInsight.recommendationReason)) {
+          if (nextInsight.llmUsed) {
+            setComparisonInsight(nextInsight)
+            setComparisonInsightStatus('success')
+          } else {
+            setComparisonInsight(null)
+            setComparisonInsightStatus('error')
+          }
+        } else if (!isCancelled) {
+          setComparisonInsight(null)
+          setComparisonInsightStatus('error')
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        console.warn('[ComparisonGraph] LLM difference request failed:', error)
         if (!isCancelled) {
           setComparisonInsight(null)
+          setComparisonInsightStatus('error')
         }
       })
 
     return () => {
       isCancelled = true
     }
-  }, [accessToken, comparedVideo, graphData, relationEdge])
+  }, [accessToken, comparedDisplayVideo, displayGraphData, graphData?.isMock, graphData?.selectedVideo, relationEdge, selectedDisplayVideo])
 
   if (!graphData?.selectedVideo || !comparedVideo) {
     return null
@@ -2909,9 +3022,40 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
         <section className="comparison-graph-page__compare-difference">
           <div className="comparison-graph-page__compare-difference-head">
             <h3>LLM 핵심 차이 요약</h3>
-            {comparisonInsight ? <span>LLM 응답</span> : <span>기본 요약</span>}
+            <span>{insightBadgeText}</span>
           </div>
-          <p>{displayedInsight?.summary || '두 영상이 같은 이슈를 서로 다른 국가 관점에서 다루고 있습니다.'}</p>
+          {isInsightLoading ? (
+            <div className="comparison-graph-page__compare-loading" role="status" aria-live="polite">
+              <strong>내용 요약 중입니다.</strong>
+              <p>두 영상의 제목, 핵심 표현, 공유 키워드, 연결 근거를 바탕으로 차이점을 정리하고 있습니다.</p>
+            </div>
+          ) : (
+            <p>{displayedInsight?.summary || '두 영상이 같은 이슈를 서로 다른 국가 관점에서 다루고 있습니다.'}</p>
+          )}
+          {displayedInsight?.comparisonRows?.length ? (
+            <div className="comparison-graph-page__compare-table-wrap">
+              <table className="comparison-graph-page__compare-table">
+                <thead>
+                  <tr>
+                    <th>비교 항목</th>
+                    <th>원본 영상</th>
+                    <th>비교 영상</th>
+                    <th>차이점</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedInsight.comparisonRows.slice(0, 4).map((row, index) => (
+                    <tr key={`comparison-row-${row.label || row.category || index}`}>
+                      <td>{row.label || row.category || row.topic || '비교 항목'}</td>
+                      <td>{row.selected || row.source || row.original || '원본 영상 기준'}</td>
+                      <td>{row.compared || row.target || row.comparison || '비교 영상 기준'}</td>
+                      <td>{row.detail || row.difference || row.summary || '두 영상의 강조점이 다릅니다.'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
           {displayedInsight?.points?.length ? (
             <ul>
               {displayedInsight.points.slice(0, 4).map((point, index) => (
@@ -2950,13 +3094,7 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
       try {
         if (USE_COMPARISON_MOCK_DATA) {
           setGraphData(createMockComparisonGraph(videoId, cachedSelectedVideo))
-          setErrorMessage('테스트용 mock 비교 그래프를 표시합니다.')
-          return
-        }
-
-        if (cachedSelectedVideo?.analysisStatus === 'MOCK_READY') {
-          setGraphData(createMockComparisonGraph(videoId, cachedSelectedVideo))
-          setErrorMessage('테스트용 mock 비교 그래프를 표시합니다.')
+          setErrorMessage('')
           return
         }
 
@@ -2976,10 +3114,11 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
               : nextGraphData,
           )
         }
-      } catch {
+      } catch (error) {
+        console.warn('[ComparisonGraph] graph API failed, fallback graph enabled:', error)
         if (!isCancelled) {
           setGraphData(createMockComparisonGraph(videoId, cachedSelectedVideo))
-          setErrorMessage('비교 그래프 API가 아직 준비되지 않아 테스트용 mock 그래프를 표시합니다.')
+          setErrorMessage('')
         }
       } finally {
         if (!isCancelled) {
@@ -3033,7 +3172,7 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
 
         {!isLoading && errorMessage && !graphData?.isMock ? (
           <StatePanel
-            title={graphData?.isMock ? 'Mock 그래프 표시 중' : '그래프를 불러오지 못했습니다'}
+            title={graphData?.isMock ? '비교 그래프 표시 중' : '그래프를 불러오지 못했습니다'}
             message={errorMessage}
             tone={graphData?.isMock ? 'default' : 'error'}
           />
