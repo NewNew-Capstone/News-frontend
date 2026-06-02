@@ -109,39 +109,6 @@ function createAuthHeaders(accessToken, { useRawAuthorization = false } = {}) {
   return headers
 }
 
-function logMyProfileResponse(payload, normalizedProfile) {
-  if (!import.meta.env.DEV) {
-    return
-  }
-
-  const responseBody = extractResponseBody(payload)
-
-  console.groupCollapsed('[MyPage] GET /api/v1/users/me response')
-  console.log('raw response:', payload)
-  console.log('response body:', responseBody)
-  console.table({
-    userId: normalizedProfile.userId,
-    email: normalizedProfile.email,
-    name: normalizedProfile.name,
-    nickname: normalizedProfile.nickname,
-    birth: normalizedProfile.birth,
-    phone: normalizedProfile.phone,
-    profileImageKey: normalizedProfile.profileImageKey,
-  })
-  console.groupEnd()
-}
-
-function logMyProfileError(response, payload) {
-  if (!import.meta.env.DEV) {
-    return
-  }
-
-  console.groupCollapsed('[MyPage] GET /api/v1/users/me failed')
-  console.warn('status:', response.status)
-  console.log('raw error response:', payload)
-  console.groupEnd()
-}
-
 async function fetchWithAuthRetry(path, { method = 'GET', accessToken, body } = {}) {
   const hasBody = body !== undefined
   const createRequestInit = (useRawAuthorization = false) => ({
@@ -208,10 +175,6 @@ async function getJson(path, accessToken, fallbackErrorMessage) {
     const payload = await parseResponse(response)
 
     if (!response.ok) {
-      if (path === '/api/v1/users/me') {
-        logMyProfileError(response, payload)
-      }
-
       const error = new Error(extractErrorMessage(payload) || fallbackErrorMessage)
       error.status = response.status
       throw error
@@ -554,11 +517,7 @@ export async function fetchMyProfile(accessToken = getAccessToken()) {
     '프로필 정보를 불러오지 못했습니다.',
   )
 
-  const normalizedProfile = normalizeUserProfile(payload)
-
-  logMyProfileResponse(payload, normalizedProfile)
-
-  return normalizedProfile
+  return normalizeUserProfile(payload)
 }
 
 export async function updateMyProfile(profileInput, accessToken = getAccessToken()) {

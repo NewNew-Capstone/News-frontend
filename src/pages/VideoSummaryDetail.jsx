@@ -270,22 +270,6 @@ function formatCount(value, label) {
   return `${label} ${numericValue.toLocaleString()}`
 }
 
-function formatDateLabel(value, fallback = '날짜 정보 없음') {
-  if (!value) {
-    return fallback
-  }
-
-  const parsedDate = new Date(value)
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value
-  }
-
-  return `${parsedDate.getFullYear()}.${String(parsedDate.getMonth() + 1).padStart(2, '0')}.${String(
-    parsedDate.getDate(),
-  ).padStart(2, '0')}`
-}
-
 function extractYoutubeVideoId(source, fallback = '') {
   const explicitId = normalizeYoutubeVideoId(pickFirst(source, ['youtubeVideoId', 'youtubeVideoID'], ''))
 
@@ -761,7 +745,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     analysisSummaryValue || '영상 요약이 아직 생성되지 않았습니다.'
   const analysisSummaryMetaItems = [
     videoDetail?.channelName,
-    formatDateLabel(videoDetail?.publishedAt, '게시일 없음'),
   ].filter(Boolean)
   const opposingVideo = recommendedVideos[0] || null
   const opposingAnalysisTitle =
@@ -778,7 +761,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     '다른 관점 영상 요약이 아직 생성되지 않았습니다.'
   const opposingAnalysisMetaItems = [
     opposingAnalysisResult?.channelName,
-    formatDateLabel(opposingAnalysisResult?.publishedAt, '게시일 없음'),
   ].filter(Boolean)
   const opposingFocusKeywordItems = (opposingAnalysisResult?.focusKeywords || [])
     .filter((keyword) => keyword?.keywordText)
@@ -918,14 +900,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
         <div className="video-summary-detail-page__recommendation-body">
           <strong>{recommendation.title}</strong>
           <p>{recommendation.channelName}</p>
-          <span>
-            {[
-              formatCount(recommendation.viewCount, '조회수'),
-              formatDateLabel(recommendation.publishedAt, '게시일 없음'),
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </span>
         </div>
       </button>
     </article>
@@ -1114,37 +1088,23 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       return
     }
 
-    console.groupCollapsed('[AnalysisDetail] rendered analysis result')
-    console.log('analysisResult:', analysisResult)
-    console.log('display scoreReasonSummary:', analysisResult.scoreReasonSummary)
-    console.log('display scoreEvidence:', analysisResult.scoreEvidence)
-    console.log('display overallBiasScore:', analysisResult.overallBiasScore)
+    console.groupCollapsed('[AnalysisDetail] summary render check')
+    console.log('summary render check:', {
+      normalizedSummaryText: analysisResult.summaryText,
+      normalizedSummaryTextLength:
+        typeof analysisResult.summaryText === 'string' ? analysisResult.summaryText.length : null,
+      analysisSummaryValue,
+      analysisSummaryValueLength: analysisSummaryValue.length,
+      renderedAnalysisSummaryText: analysisSummaryText,
+      renderedAnalysisSummaryTextLength: analysisSummaryText.length,
+      summaryTextForCurrentView: summaryText,
+      summaryTextForCurrentViewLength: summaryText.length,
+      videoDescriptionFallback: videoDescriptionText,
+      videoDescriptionFallbackLength: videoDescriptionText.length,
+      isAnalysisView,
+    })
     console.groupEnd()
-  }, [analysisResult])
-
-  useEffect(() => {
-    if (!opposingAnalysisResult || typeof console === 'undefined') {
-      return
-    }
-
-    console.groupCollapsed('[OpposingAnalysisDetail] rendered keyword state')
-    console.log('opposingAnalysisResult:', opposingAnalysisResult)
-    console.log('raw/normalized focusKeywords:', opposingAnalysisResult.focusKeywords)
-    console.log('raw/normalized emotionKeywords:', opposingAnalysisResult.emotionKeywords)
-    console.log('legacy analysisKeywords:', opposingAnalysisResult.analysisKeywords)
-    console.log('visible opposing focus keywords:', visibleOpposingFocusKeywordItems)
-    console.log('visible opposing emotion keywords:', visibleOpposingEmotionKeywordItems)
-    console.log(
-      'focus keyword meta labels:',
-      visibleOpposingFocusKeywordItems.map((keyword) => ({
-        keywordText: keyword.keywordText,
-        occurrenceCount: keyword.occurrenceCount ?? keyword.occurrence_count,
-        sentenceCount: keyword.sentenceCount ?? keyword.sentence_count,
-        displayMeta: formatFocusKeywordMeta(keyword),
-      })),
-    )
-    console.groupEnd()
-  }, [opposingAnalysisResult, visibleOpposingFocusKeywordItems, visibleOpposingEmotionKeywordItems])
+  }, [analysisResult, analysisSummaryText, analysisSummaryValue, isAnalysisView, summaryText, videoDescriptionText])
 
   useEffect(() => {
     if (!isAnalysisModalOpen) {
@@ -1370,28 +1330,10 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     setOpposingAnalysisErrorMessage('')
 
     try {
-      if (typeof console !== 'undefined') {
-        console.groupCollapsed('[OpposingAnalysisDetail] find opposing video with original API')
-        console.log('request targetVideoId:', targetVideoId)
-        console.log('analysisTargetId:', analysisTargetId)
-        console.log('analysisResult targetId:', analysisResult?.targetId)
-        console.log('videoDetail targetId:', videoDetail?.targetId)
-        console.log('videoDetail youtubeVideoId:', videoDetail?.youtubeVideoId)
-        console.groupEnd()
-      }
-
       const nextOpposingVideo = await fetchOpposingIssueVideo(targetVideoId, accessToken)
 
       if (!nextOpposingVideo?.youtubeVideoId) {
         throw new Error('다른 관점 영상 ID가 없어 분석 결과를 불러올 수 없습니다.')
-      }
-
-      if (typeof console !== 'undefined') {
-        console.groupCollapsed('[OpposingAnalysisDetail] opposing video found by /issues/opposing')
-        console.log('nextOpposingVideo:', nextOpposingVideo)
-        console.log('opposing youtubeVideoId:', nextOpposingVideo.youtubeVideoId)
-        console.log('opposing existing targetId:', nextOpposingVideo.targetId)
-        console.groupEnd()
       }
 
       let pipelineAnalysis = null
@@ -1399,30 +1341,13 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
       if (nextTargetId) {
         try {
-          if (typeof console !== 'undefined') {
-            console.groupCollapsed('[OpposingAnalysisDetail] fetch existing opposing /api/v1/analysis/{targetId}')
-            console.log('targetId:', nextTargetId)
-            console.groupEnd()
-          }
-
           pipelineAnalysis = await pollAnalysisResult(nextTargetId, accessToken)
         } catch (error) {
-          if (typeof console !== 'undefined') {
-            console.groupCollapsed('[OpposingAnalysisDetail] existing opposing analysis fetch failed; will call analyze API')
-            console.log('targetId:', nextTargetId)
-            console.log('error:', error)
-            console.groupEnd()
-          }
+          void error
         }
       }
 
       if (!pipelineAnalysis) {
-        if (typeof console !== 'undefined') {
-          console.groupCollapsed('[OpposingAnalysisDetail] call same analyze API as main video')
-          console.log('POST /api/v1/analysis/analyze/{youtubeId}?clustering=true youtubeId:', nextOpposingVideo.youtubeVideoId)
-          console.groupEnd()
-        }
-
         const startedAnalysis = await startVideoAnalysis(nextOpposingVideo.youtubeVideoId, accessToken)
         nextTargetId =
           startedAnalysis.targetId ??
@@ -1445,18 +1370,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
         pipelineAnalysis,
         analysisResult,
       )
-
-      if (typeof console !== 'undefined') {
-        console.groupCollapsed('[OpposingAnalysisDetail] final opposing result from same analysis API')
-        console.log('enrichedOpposingAnalysis:', enrichedOpposingAnalysis)
-        console.log('final summaryText:', enrichedOpposingAnalysis?.summaryText)
-        console.log('opposing API summaryText:', nextOpposingVideo?.summaryText)
-        console.log('opposing API description:', nextOpposingVideo?.description)
-        console.log('final focusKeywords:', enrichedOpposingAnalysis?.focusKeywords)
-        console.log('final emotionKeywords:', enrichedOpposingAnalysis?.emotionKeywords)
-        console.log('final targetId:', enrichedOpposingAnalysis?.targetId)
-        console.groupEnd()
-      }
 
       setOpposingAnalysisResult(enrichedOpposingAnalysis)
       try {
@@ -1524,13 +1437,23 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
         null
 
       if (startedAnalysis.analysisResult) {
+        let nextAnalysisResult = startedAnalysis.analysisResult
+
+        if (
+          !String(nextAnalysisResult.summaryText || '').trim() &&
+          nextTargetId !== null &&
+          nextTargetId !== undefined
+        ) {
+          nextAnalysisResult = await pollAnalysisResult(nextTargetId, accessToken)
+        }
+
         if (nextTargetId !== null && nextTargetId !== undefined) {
           setAnalysisTargetId(nextTargetId)
         }
 
         setHasCheckedExistingAnalysis(true)
         setPendingAnalysisTargetId(null)
-        setAnalysisResult(startedAnalysis.analysisResult)
+        setAnalysisResult(nextAnalysisResult)
         return
       }
 
@@ -2248,10 +2171,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
                     <div className="video-summary-detail-page__meta">
                       <span>{videoDetail.channelName}</span>
-                      <span>{formatDateLabel(videoDetail.publishedAt, '게시일 없음')}</span>
-                      {formatCount(videoDetail.viewCount, '조회수') ? (
-                        <span>{formatCount(videoDetail.viewCount, '조회수')}</span>
-                      ) : null}
                       {formatCount(videoDetail.commentCount, '댓글') ? (
                         <span>{formatCount(videoDetail.commentCount, '댓글')}</span>
                       ) : null}
@@ -2416,7 +2335,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                           <article key={comment.id} className="video-summary-detail-page__comment">
                             <div className="video-summary-detail-page__comment-top">
                               <strong>{comment.author}</strong>
-                              <span>{formatDateLabel(comment.publishedAt, '작성일 없음')}</span>
                             </div>
                             <p>{comment.text}</p>
                             <div className="video-summary-detail-page__comment-meta">
@@ -2492,14 +2410,6 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                             <div className="video-summary-detail-page__recommendation-body">
                               <strong>{recommendation.title}</strong>
                               <p>{recommendation.channelName}</p>
-                              <span>
-                                {[
-                                  formatCount(recommendation.viewCount, '조회수'),
-                                  formatDateLabel(recommendation.publishedAt, '게시일 없음'),
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ')}
-                              </span>
                             </div>
                           </button>
                         </article>

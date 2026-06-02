@@ -183,30 +183,6 @@ function SearchIcon() {
   )
 }
 
-function formatViewCount(value) {
-  const numberValue = Number(value)
-
-  if (!Number.isFinite(numberValue) || numberValue <= 0) {
-    return '조회수 정보 없음'
-  }
-
-  return `조회수 ${numberValue.toLocaleString()}`
-}
-
-function formatPublishedDate(value, fallback = '게시일 정보 없음') {
-  if (!value) {
-    return fallback
-  }
-
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return String(value)
-  }
-
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`
-}
-
 function getKeywordText(keyword) {
   if (typeof keyword === 'string') {
     return keyword
@@ -397,10 +373,6 @@ function ComparisonVideoCard({ video, onClick }) {
       <div className="country-compare-page__video-body">
         <strong>{video.title}</strong>
         <p>{video.channelName}</p>
-        <div className="country-compare-page__video-meta">
-          <span>{formatViewCount(video.viewCount)}</span>
-          <span>{formatPublishedDate(video.publishedAt)}</span>
-        </div>
         <div className="country-compare-page__video-tags">
           <span>{video.language || '언어 정보 없음'}</span>
           <span>{video.analysisStatus || '분석 상태 없음'}</span>
@@ -2166,7 +2138,6 @@ function RecommendationVideoCard({ node, countryCode, onClick }) {
         <div className="comparison-graph-page__recommendation-copy">
           <strong>{node.title}</strong>
           <span>{node.channelName || `${country.name} News`}</span>
-          <em>{formatViewCount(node.viewCount)} · {formatPublishedDate(node.publishedAt, '게시일 정보 없음')}</em>
         </div>
         <span
           className="comparison-graph-page__recommendation-compare"
@@ -2220,7 +2191,6 @@ function SelectedVideoCard({ video }) {
         <div className="comparison-graph-page__recommendation-copy">
           <strong>{video?.title || '선택한 영상'}</strong>
           <span>{video?.channelName || `${country.name} News`}</span>
-          <em>{formatViewCount(video?.viewCount)} · {formatPublishedDate(video?.publishedAt, '게시일 정보 없음')}</em>
         </div>
       </button>
     </Html>
@@ -2673,7 +2643,6 @@ function ComparisonVideoModalCard({ video, title, relationEdge = null, graphData
       <div className="comparison-graph-page__compare-copy">
         <strong>{video?.title || '영상 제목 정보 없음'}</strong>
         <span>{video?.channelName || `${country.name} News`}</span>
-        <em>{formatViewCount(video?.viewCount)} · {formatPublishedDate(video?.publishedAt, '게시일 정보 없음')}</em>
       </div>
 
       <section className="comparison-graph-page__compare-keywords">

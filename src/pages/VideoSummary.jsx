@@ -95,44 +95,10 @@ function slugify(value) {
     .replace(/[^a-z0-9가-힣-]/g, '')
 }
 
-function formatPublishedDate(value) {
-  if (!value) {
-    return '날짜 정보 없음'
-  }
-
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  const year = String(date.getFullYear()).slice(-2)
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-
-  return `${year}. ${month}. ${day}.`
-}
-
-function formatViewCount(value) {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return ''
-  }
-
-  return `조회수 ${value.toLocaleString()}`
-}
-
 function buildMetaText(video) {
   const channelName = pickFirst(video, ['channelName', 'channelTitle', 'channel', 'publisher'])
-  const rawViewCount = pickFirst(video, ['viewCount', 'views', 'view_count'], null)
-  const numericViewCount =
-    typeof rawViewCount === 'number'
-      ? rawViewCount
-      : typeof rawViewCount === 'string'
-        ? Number(rawViewCount)
-        : null
-  const parts = [channelName, formatViewCount(numericViewCount)].filter(Boolean)
 
-  return parts.join(' · ') || '채널 정보 없음'
+  return channelName || '채널 정보 없음'
 }
 
 function createVideoCard(video, scrapLookup, index) {
@@ -152,7 +118,6 @@ function createVideoCard(video, scrapLookup, index) {
   const normalizedYoutubeVideoId = youtubeVideoId || normalizeYoutubeVideoId(id) || id
   const scrapItem = scrapLookup[normalizedYoutubeVideoId] || null
   const title = pickFirst(video, ['title', 'videoTitle', 'name'], '영상 제목 정보가 없습니다.')
-  const publishedAt = pickFirst(video, ['publishedAt', 'publishedDate', 'published_at', 'uploadDate'])
   const image = pickFirst(video, ['thumbnailUrl', 'thumbnail', 'thumbnailURL', 'thumbUrl', 'imageUrl'])
   const originalUrl = pickFirst(
     video,
@@ -165,7 +130,6 @@ function createVideoCard(video, scrapLookup, index) {
     youtubeVideoId: normalizedYoutubeVideoId,
     title,
     reporter: buildMetaText(video),
-    date: formatPublishedDate(publishedAt),
     image,
     originalUrl,
     scrapId: scrapItem?.scrapId ?? null,

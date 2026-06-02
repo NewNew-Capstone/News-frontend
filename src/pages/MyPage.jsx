@@ -52,38 +52,6 @@ function formatBirthDate(value) {
   return normalizedValue
 }
 
-function formatDateLabel(value, fallbackText) {
-  const normalizedValue = getDisplayText(value, '')
-
-  if (!normalizedValue) {
-    return fallbackText
-  }
-
-  const parsedTime = Date.parse(normalizedValue)
-
-  if (Number.isNaN(parsedTime)) {
-    return normalizedValue
-  }
-
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
-    .format(new Date(parsedTime))
-    .replace(/\.\s*$/, '')
-}
-
-function formatViewCount(value) {
-  const numericValue = Number(value)
-
-  if (!Number.isFinite(numericValue) || numericValue < 0) {
-    return '조회수 정보 없음'
-  }
-
-  return `조회수 ${new Intl.NumberFormat('ko-KR').format(numericValue)}`
-}
-
 function MyPage({ isLoggedIn, onAuthClick, onLogout, onProfileUpdate, user }) {
   const [activeTab, setActiveTab] = useState('profile')
   const [profile, setProfile] = useState(user || null)
@@ -734,13 +702,8 @@ function MyPage({ isLoggedIn, onAuthClick, onLogout, onProfileUpdate, user }) {
                         <div className="my-page__scrap-body">
                           <div className="my-page__scrap-meta">
                             <span>{scrapItem.channelName}</span>
-                            <span>{formatDateLabel(scrapItem.scrapCreatedAt, '저장일 없음')}</span>
                           </div>
                           <strong className="my-page__scrap-title">{scrapItem.title}</strong>
-                          <div className="my-page__scrap-stats">
-                            <span>{formatViewCount(scrapItem.viewCount)}</span>
-                            <span>{formatDateLabel(scrapItem.publishedAt, '게시일 없음')}</span>
-                          </div>
                         </div>
                       </button>
 

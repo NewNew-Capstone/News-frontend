@@ -370,25 +370,5 @@ export async function fetchOpposingIssueVideo(videoId, accessToken) {
 
   const responseBody = extractResponseBody(payload) || {}
 
-  if (typeof console !== 'undefined') {
-    console.groupCollapsed('[Issues] /issues/opposing raw summary fields')
-    console.log('raw opposing body:', responseBody)
-    console.log('summary candidates:', {
-      summaryText: responseBody.summaryText,
-      summary_text: responseBody.summary_text,
-      summary: responseBody.summary,
-      analysisSummary: responseBody.analysisSummary,
-      analysis_summary: responseBody.analysis_summary,
-      videoSummary: responseBody.videoSummary,
-      video_summary: responseBody.video_summary,
-      generatedSummary: responseBody.generatedSummary,
-      generated_summary: responseBody.generated_summary,
-      description: responseBody.description,
-      videoDescription: responseBody.videoDescription,
-      content: responseBody.content,
-    })
-    console.groupEnd()
-  }
-
   return normalizeOpposingVideo(responseBody)
 }
