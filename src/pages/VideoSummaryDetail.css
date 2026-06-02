@@ -412,7 +412,7 @@
 }
 
 .video-summary-detail-page__analysis-view--compare .video-summary-detail-page__analysis-summary-card .video-summary-detail-page__analysis-compact-text {
-  -webkit-line-clamp: 7;
+  -webkit-line-clamp: unset;
 }
 
 .video-summary-detail-page__analysis-view--compare .video-summary-detail-page__analysis-summary-card .video-summary-detail-page__opposing-analysis-button {
@@ -531,6 +531,9 @@
 .video-summary-detail-page__analysis-summary-card {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  max-height: clamp(340px, 32vw, 520px);
+  overflow: hidden;
   padding: 24px 26px 26px;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 255, 0.96)),
@@ -546,18 +549,72 @@
   line-height: 1.25;
 }
 
+.video-summary-detail-page__analysis-summary-card .video-summary-detail-page__analysis-compact-header {
+  flex: 0 0 auto;
+}
+
 .video-summary-detail-page__analysis-summary-card .video-summary-detail-page__analysis-pill {
   transform: scale(1.04);
   transform-origin: right center;
 }
 
 .video-summary-detail-page__analysis-summary-card .video-summary-detail-page__analysis-compact-text {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
   margin-top: 16px;
+  padding-right: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   color: var(--text-strong, #191f28);
   font-size: 1.04rem;
   font-weight: 700;
   line-height: 1.85;
-  -webkit-line-clamp: 9;
+  -webkit-box-orient: initial;
+  -webkit-line-clamp: unset;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(145, 184, 248, 0.92) rgba(235, 243, 255, 0.72);
+}
+
+.video-summary-detail-page__analysis-summary-card .video-summary-detail-page__analysis-compact-text::-webkit-scrollbar {
+  width: 6px;
+}
+
+.video-summary-detail-page__analysis-summary-card .video-summary-detail-page__analysis-compact-text::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(235, 243, 255, 0.72);
+}
+
+.video-summary-detail-page__analysis-summary-card .video-summary-detail-page__analysis-compact-text::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(145, 184, 248, 0.92);
+}
+
+.video-summary-detail-page__analysis-summary-meta {
+  display: block;
+  flex: 0 0 auto;
+  margin-top: 10px;
+  color: #2563eb;
+  font-size: 0.82rem;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.video-summary-detail-page__analysis-summary-meta--opposing {
+  color: #e11d48;
+}
+
+.video-summary-detail-page__analysis-summary-title {
+  display: -webkit-box;
+  flex: 0 0 auto;
+  margin-top: 14px;
+  overflow: hidden;
+  color: #1d4ed8;
+  font-size: 0.92rem;
+  font-weight: 950;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .video-summary-detail-page__analysis-compare-stage {
@@ -629,6 +686,7 @@
 
 .video-summary-detail-page__opposing-analysis-title {
   display: -webkit-box;
+  flex: 0 0 auto;
   margin-top: 14px;
   overflow: hidden;
   color: #be123c;
@@ -648,6 +706,7 @@
 
 .video-summary-detail-page__opposing-analysis-button {
   align-self: flex-start;
+  flex: 0 0 auto;
   margin-top: 18px;
   padding: 11px 15px;
   border: 1px solid rgba(49, 130, 246, 0.28);
@@ -2790,7 +2849,7 @@
   }
 
   .video-summary-detail-page__analysis-view--compare .video-summary-detail-page__analysis-summary-card .video-summary-detail-page__analysis-compact-text {
-    -webkit-line-clamp: 8;
+    -webkit-line-clamp: unset;
   }
 
   .video-summary-detail-page__analysis-top-grid--compare {

@@ -472,9 +472,15 @@ function normalizeVideoDetail(video, fallbackYoutubeVideoId = '') {
     title,
     description: pickFirst(
       video,
-      ['description', 'summary', 'content', 'videoDescription'],
+      [
+        'description',
+        'summary',
+        'content',
+        'videoDescription',
+      ],
       '영상 설명이 아직 제공되지 않았습니다.',
     ),
+    summaryText: pickFirst(video, ['summaryText', 'summary_text']),
     thumbnailUrl,
     originalUrl,
     channelName: pickFirst(video, ['channelName', 'channelTitle', 'channel', 'publisher'], '채널 정보 없음'),
@@ -539,6 +545,13 @@ function createRecommendedVideoCards(videos, currentYoutubeVideoId, scrapLookup)
         '채널 정보 없음',
       ),
       publishedAt: pickFirst(video, ['publishedAt', 'publishedDate', 'published_at', 'uploadDate'], ''),
+      summaryText: pickFirst(video, ['summaryText', 'summary_text']),
+      description: pickFirst(video, [
+        'description',
+        'summary',
+        'content',
+        'videoDescription',
+      ]),
       viewCount: pickFirst(video, ['viewCount', 'views', 'view_count'], null),
       originalUrl: pickFirst(
         video,
@@ -659,8 +672,9 @@ function buildOpposingAnalysisFromVideo(opposingVideo, pipelineAnalysis, current
     youtubeVideoId: opposingVideo?.youtubeVideoId || pipelineAnalysis?.youtubeVideoId || '',
     title: opposingVideo?.title || pipelineAnalysis?.title || '다른 관점 영상',
     channelName: opposingVideo?.channelName || pipelineAnalysis?.channelName || '',
+    publishedAt: opposingVideo?.publishedAt || pipelineAnalysis?.publishedAt || '',
     thumbnailUrl: opposingVideo?.thumbnailUrl || pipelineAnalysis?.thumbnailUrl || '',
-    summaryText: pipelineAnalysis?.summaryText || opposingVideo?.description || '',
+    summaryText: pipelineAnalysis?.summaryText || '',
     originalUrl: opposingVideo?.originalUrl || buildYoutubeWatchUrl(opposingVideo?.youtubeVideoId || ''),
     opinionGap,
     hasSeparatedKeywords: hasKeywordItems(pipelineAnalysis?.focusKeywords) || hasKeywordItems(pipelineAnalysis?.emotionKeywords),
@@ -701,7 +715,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const [isOpposingScrapLoading, setIsOpposingScrapLoading] = useState(false)
   const [pendingRecommendationIds, setPendingRecommendationIds] = useState([])
 
-  const summaryText = analysisResult?.summaryText || videoDetail?.description || ''
+  const analysisSummaryValue = analysisResult?.summaryText || ''
+  const videoDescriptionText = videoDetail?.description || ''
+  const summaryText = analysisResult ? analysisSummaryValue : videoDescriptionText
   const isSummaryToggleVisible = summaryText.length > 180
   const isSummaryCollapsed = isSummaryToggleVisible && !isSummaryExpanded
 
@@ -739,8 +755,14 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const sentenceLabelItems = dedupeSentenceLabels(analysisResult?.sentenceLabels || [])
   const isAnalysisView = Boolean(analysisResult)
   const analysisToneLabel = analysisResult?.toneLabel || '분석 완료'
+  const analysisSummaryTitle =
+    videoDetail?.title || analysisResult?.title || '기준 영상'
   const analysisSummaryText =
-    summaryText || '영상 분석이 완료되면 여기에서 요약된 내용을 확인할 수 있습니다.'
+    analysisSummaryValue || '영상 요약이 아직 생성되지 않았습니다.'
+  const analysisSummaryMetaItems = [
+    videoDetail?.channelName,
+    formatDateLabel(videoDetail?.publishedAt, '게시일 없음'),
+  ].filter(Boolean)
   const opposingVideo = recommendedVideos[0] || null
   const opposingAnalysisTitle =
     opposingAnalysisResult?.title ||
@@ -753,9 +775,11 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       : analysisResult?.opposingToneLabel || '반대 관점'
   const opposingAnalysisSummaryText =
     opposingAnalysisResult?.summaryText ||
-    analysisResult?.opposingSummaryText ||
-    analysisResult?.opposingAnalysisSummary ||
-    '현재 영상과 다른 관점에서 같은 이슈를 다루는 영상의 분석 결과를 이곳에서 비교합니다. 주관성 점수와 감정 표현, 핵심 주장 차이를 함께 확인할 수 있습니다.'
+    '다른 관점 영상 요약이 아직 생성되지 않았습니다.'
+  const opposingAnalysisMetaItems = [
+    opposingAnalysisResult?.channelName,
+    formatDateLabel(opposingAnalysisResult?.publishedAt, '게시일 없음'),
+  ].filter(Boolean)
   const opposingFocusKeywordItems = (opposingAnalysisResult?.focusKeywords || [])
     .filter((keyword) => keyword?.keywordText)
   const legacyOpposingKeywordItems = (opposingAnalysisResult?.analysisKeywords || [])
@@ -1425,6 +1449,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       if (typeof console !== 'undefined') {
         console.groupCollapsed('[OpposingAnalysisDetail] final opposing result from same analysis API')
         console.log('enrichedOpposingAnalysis:', enrichedOpposingAnalysis)
+        console.log('final summaryText:', enrichedOpposingAnalysis?.summaryText)
+        console.log('opposing API summaryText:', nextOpposingVideo?.summaryText)
+        console.log('opposing API description:', nextOpposingVideo?.description)
         console.log('final focusKeywords:', enrichedOpposingAnalysis?.focusKeywords)
         console.log('final emotionKeywords:', enrichedOpposingAnalysis?.emotionKeywords)
         console.log('final targetId:', enrichedOpposingAnalysis?.targetId)
@@ -1705,6 +1732,14 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                               {analysisToneLabel}
                             </span>
                           </div>
+                          <strong className="video-summary-detail-page__analysis-summary-title">
+                            {analysisSummaryTitle}
+                          </strong>
+                          {analysisSummaryMetaItems.length ? (
+                            <span className="video-summary-detail-page__analysis-summary-meta">
+                              {analysisSummaryMetaItems.join(' · ')}
+                            </span>
+                          ) : null}
                           <p className="video-summary-detail-page__analysis-compact-text">
                             {analysisSummaryText}
                           </p>
@@ -1966,9 +2001,9 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                           <strong className="video-summary-detail-page__opposing-analysis-title">
                             {opposingAnalysisTitle}
                           </strong>
-                          {opposingAnalysisResult?.channelName ? (
-                            <span className="video-summary-detail-page__opposing-analysis-channel">
-                              {opposingAnalysisResult.channelName}
+                          {opposingAnalysisMetaItems.length ? (
+                            <span className="video-summary-detail-page__analysis-summary-meta video-summary-detail-page__analysis-summary-meta--opposing">
+                              {opposingAnalysisMetaItems.join(' · ')}
                             </span>
                           ) : null}
                           <p className="video-summary-detail-page__analysis-compact-text">

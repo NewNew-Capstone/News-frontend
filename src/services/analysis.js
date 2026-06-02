@@ -293,6 +293,18 @@ function pickArray(source, keys) {
   return []
 }
 
+function pickString(source, keys, fallback = '') {
+  for (const key of keys) {
+    const value = source?.[key]
+
+    if (typeof value === 'string' && value.trim()) {
+      return value
+    }
+  }
+
+  return fallback
+}
+
 function normalizeSentenceLabel(label, index) {
   if (!label || typeof label !== 'object') {
     return null
@@ -454,7 +466,12 @@ function normalizeAnalysisResult(source) {
       neutralityScoreValue === null || neutralityScoreValue === undefined
         ? null
         : normalizeAnalysisScore(neutralityScoreValue),
-    summaryText: responseBody.summary_text || responseBody.summaryText || '',
+    youtubeVideoId: pickString(responseBody, ['youtube_video_id', 'youtubeVideoId', 'videoId']),
+    title: pickString(responseBody, ['title', 'video_title', 'videoTitle']),
+    channelName: pickString(responseBody, ['channel_name', 'channelName', 'channelTitle', 'channel']),
+    publishedAt: pickString(responseBody, ['published_at', 'publishedAt', 'publishedDate', 'uploadDate']),
+    thumbnailUrl: pickString(responseBody, ['thumbnail_url', 'thumbnailUrl', 'thumbnail', 'imageUrl']),
+    summaryText: pickString(responseBody, ['summary_text', 'summaryText']),
     perspectiveSummary: responseBody.perspective_summary || responseBody.perspectiveSummary || '',
     evidenceSummary: responseBody.evidence_summary || responseBody.evidenceSummary || '',
     scoreReasonSummary:
@@ -488,6 +505,11 @@ function normalizeAnalysisResult(source) {
   if (typeof console !== 'undefined') {
     console.groupCollapsed('[Analysis] normalize result')
     console.log('raw response body:', responseBody)
+    console.log('raw summary candidates:', {
+      summary_text: responseBody.summary_text,
+      summaryText: responseBody.summaryText,
+    })
+    console.log('normalized summaryText:', normalizedResult.summaryText)
     console.log('raw score_reason_summary:', responseBody.score_reason_summary)
     console.log('raw scoreReasonSummary:', responseBody.scoreReasonSummary)
     console.log('normalized scoreReasonSummary:', normalizedResult.scoreReasonSummary)

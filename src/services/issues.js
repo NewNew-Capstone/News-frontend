@@ -205,6 +205,18 @@ function pickKeywordArray(source, keys) {
   return []
 }
 
+function pickString(source, keys, fallback = '') {
+  for (const key of keys) {
+    const value = source?.[key]
+
+    if (typeof value === 'string' && value.trim()) {
+      return value
+    }
+  }
+
+  return fallback
+}
+
 function normalizeOpposingVideo(body = {}) {
   const legacyAnalysisKeywords = pickKeywordArray(body, ['analysisKeywords', 'analysis_keywords'])
   const normalizedFocusKeywords = normalizePipelineKeywords(
@@ -226,8 +238,15 @@ function normalizeOpposingVideo(body = {}) {
     youtubeVideoId: body.youtubeVideoId || body.youtube_video_id || '',
     title: body.title || '',
     channelName: body.channelName || body.channel_name || '',
+    publishedAt: body.publishedAt || body.publishedDate || body.published_at || body.uploadDate || '',
     thumbnailUrl: body.thumbnailUrl || body.thumbnail_url || body.thumbnail || body.imageUrl || body.image_url || '',
-    summaryText: body.summaryText || body.summary_text || '',
+    description: pickString(body, [
+      'description',
+      'videoDescription',
+      'content',
+      'summary',
+    ]),
+    summaryText: pickString(body, ['summaryText', 'summary_text']),
     opinionScore: normalizeIssueScore(body.opinionScore ?? body.opinion_score),
     emotionScore: normalizeIssueScore(body.emotionScore ?? body.emotion_score),
     factRatio: normalizeIssueScore(body.factRatio ?? body.fact_ratio),
@@ -349,5 +368,27 @@ export async function fetchOpposingIssueVideo(videoId, accessToken) {
     throw error
   }
 
-  return normalizeOpposingVideo(extractResponseBody(payload) || {})
+  const responseBody = extractResponseBody(payload) || {}
+
+  if (typeof console !== 'undefined') {
+    console.groupCollapsed('[Issues] /issues/opposing raw summary fields')
+    console.log('raw opposing body:', responseBody)
+    console.log('summary candidates:', {
+      summaryText: responseBody.summaryText,
+      summary_text: responseBody.summary_text,
+      summary: responseBody.summary,
+      analysisSummary: responseBody.analysisSummary,
+      analysis_summary: responseBody.analysis_summary,
+      videoSummary: responseBody.videoSummary,
+      video_summary: responseBody.video_summary,
+      generatedSummary: responseBody.generatedSummary,
+      generated_summary: responseBody.generated_summary,
+      description: responseBody.description,
+      videoDescription: responseBody.videoDescription,
+      content: responseBody.content,
+    })
+    console.groupEnd()
+  }
+
+  return normalizeOpposingVideo(responseBody)
 }
