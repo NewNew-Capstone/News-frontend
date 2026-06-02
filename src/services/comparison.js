@@ -537,6 +537,8 @@ function normalizeGraphEdge(edge, index = 0) {
     reasons: toArray(edge.reasons || edge.connection_reasons || edge.connectionReasons),
     sharedEntities: toArray(edge.shared_entities || edge.sharedEntities),
     sameIssueCluster: pickFirst(edge, ['same_issue_cluster', 'sameIssueCluster', 'cluster', 'cluster_name', 'clusterName']),
+    similarityScore: Number(edge.similarity_score ?? edge.similarityScore ?? 0),
+    scoreBreakdown: edge.score_breakdown || edge.scoreBreakdown || {},
     weight: Number(edge.weight ?? edge.score ?? 0),
   }
 }
@@ -766,6 +768,8 @@ export async function requestComparisonInsight({ selectedVideo, comparedVideo, r
   return {
     summary: body.summary || body.differenceSummary || body.difference_summary || '',
     points: toArray(body.points || body.keyPoints || body.key_points),
+    comparisonRows: toArray(body.comparisonRows || body.comparison_rows || body.tableRows || body.table_rows),
     recommendationReason: body.recommendationReason || body.recommendation_reason || '',
+    llmUsed: Boolean(body.llmUsed ?? body.llm_used),
   }
 }
