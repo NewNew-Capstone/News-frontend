@@ -503,18 +503,25 @@ function normalizeAnalysisResult(source) {
   }
 
   if (typeof console !== 'undefined') {
-    console.groupCollapsed('[Analysis] normalize result')
-    console.log('raw response body:', responseBody)
+    console.groupCollapsed('[Analysis] summary_text normalize')
     console.log('raw summary candidates:', {
       summary_text: responseBody.summary_text,
       summaryText: responseBody.summaryText,
     })
+    console.log('summary_text field check:', {
+      hasSnakeCase: Object.prototype.hasOwnProperty.call(responseBody, 'summary_text'),
+      hasCamelCase: Object.prototype.hasOwnProperty.call(responseBody, 'summaryText'),
+      rawSnakeValue: responseBody.summary_text,
+      rawCamelValue: responseBody.summaryText,
+      rawSnakeType: typeof responseBody.summary_text,
+      rawCamelType: typeof responseBody.summaryText,
+      rawSnakeLength:
+        typeof responseBody.summary_text === 'string' ? responseBody.summary_text.length : null,
+      rawCamelLength:
+        typeof responseBody.summaryText === 'string' ? responseBody.summaryText.length : null,
+    })
     console.log('normalized summaryText:', normalizedResult.summaryText)
-    console.log('raw score_reason_summary:', responseBody.score_reason_summary)
-    console.log('raw scoreReasonSummary:', responseBody.scoreReasonSummary)
-    console.log('normalized scoreReasonSummary:', normalizedResult.scoreReasonSummary)
-    console.log('raw score_evidence:', responseBody.score_evidence)
-    console.log('normalized scoreEvidence:', normalizedResult.scoreEvidence)
+    console.log('normalized summaryText length:', normalizedResult.summaryText.length)
     console.groupEnd()
   }
 

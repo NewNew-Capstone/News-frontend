@@ -242,7 +242,6 @@ function RotatingArticleCarousel({
                         <span className="rotating-article-carousel__publisher">
                           {article.description || article.reporter}
                         </span>
-                        <span className="rotating-article-carousel__date">{article.date}</span>
                       </div>
                       <strong>{article.title}</strong>
                     </div>

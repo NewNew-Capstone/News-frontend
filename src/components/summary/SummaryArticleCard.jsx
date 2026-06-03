@@ -41,7 +41,6 @@ function SummaryArticleCard({ article, publisherId, onToggleScrap, onOpenVideo }
         <div className="summary-article-card__body">
           <div className="summary-article-card__title-row">
             <h3>{article.title}</h3>
-            <span>{article.date}</span>
           </div>
           <p>{article.reporter}</p>
         </div>

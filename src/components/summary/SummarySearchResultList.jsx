@@ -30,7 +30,6 @@ function SummarySearchResultList({ title, articles, onToggleScrap, onOpenVideo }
               <div className="summary-search-results__body">
                 <h3>{article.title}</h3>
                 <p>{article.reporter}</p>
-                <span>{article.date}</span>
               </div>
             </button>
 

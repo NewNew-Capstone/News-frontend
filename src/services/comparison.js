@@ -537,9 +537,9 @@ function normalizeGraphEdge(edge, index = 0) {
     reasons: toArray(edge.reasons || edge.connection_reasons || edge.connectionReasons),
     sharedEntities: toArray(edge.shared_entities || edge.sharedEntities),
     sameIssueCluster: pickFirst(edge, ['same_issue_cluster', 'sameIssueCluster', 'cluster', 'cluster_name', 'clusterName']),
+    weight: Number(edge.weight ?? edge.score ?? 0),
     similarityScore: Number(edge.similarity_score ?? edge.similarityScore ?? 0),
     scoreBreakdown: edge.score_breakdown || edge.scoreBreakdown || {},
-    weight: Number(edge.weight ?? edge.score ?? 0),
   }
 }
 

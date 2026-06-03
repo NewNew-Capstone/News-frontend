@@ -183,30 +183,6 @@ function SearchIcon() {
   )
 }
 
-function formatViewCount(value) {
-  const numberValue = Number(value)
-
-  if (!Number.isFinite(numberValue) || numberValue <= 0) {
-    return '조회수 정보 없음'
-  }
-
-  return `조회수 ${numberValue.toLocaleString()}`
-}
-
-function formatPublishedDate(value, fallback = '게시일 정보 없음') {
-  if (!value) {
-    return fallback
-  }
-
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return String(value)
-  }
-
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`
-}
-
 function getKeywordText(keyword) {
   if (typeof keyword === 'string') {
     return keyword
@@ -278,6 +254,32 @@ function translateComparisonKeywordText(keywordText, countryCode) {
   return COMPARISON_KEYWORD_KO_LABELS[text] || COMPARISON_KEYWORD_KO_LABELS[normalizedText] || text
 }
 
+function formatInsightKeywords(keywords, fallback = '키워드 정보 없음') {
+  const normalizedKeywords = Array.isArray(keywords)
+    ? keywords.map((keyword) => getKeywordText(keyword)).filter(Boolean)
+    : []
+
+  return normalizedKeywords.length ? normalizedKeywords.slice(0, 4).join(', ') : fallback
+}
+
+function sanitizeRecommendationReasons(reasons = []) {
+  return (Array.isArray(reasons) ? reasons : [])
+    .map((reason) => String(reason || '').trim())
+    .filter((reason) => reason && !/mock|목데이터|테스트용|API 실패/i.test(reason))
+}
+
+function sanitizeInsightText(text = '') {
+  const normalizedText = String(text || '').trim()
+
+  return normalizedText && !/mock|목데이터|테스트용|API 실패/i.test(normalizedText) ? normalizedText : ''
+}
+
+function formatSimilarityScore(score) {
+  const numericScore = Number(score)
+
+  return Number.isFinite(numericScore) && numericScore > 0 ? numericScore.toFixed(2) : ''
+}
+
 function formatFocusKeywordMeta(keyword) {
   const occurrenceCount = Number(keyword?.occurrenceCount ?? keyword?.occurrence_count)
   const sentenceCount = Number(keyword?.sentenceCount ?? keyword?.sentence_count)
@@ -337,7 +339,7 @@ function createMockComparisonGraph(videoId, selectedVideoOverride = null) {
         nodeType: 'related',
         reasons: [
           `${section.countryLocalLabel} 관점에서 트럼프와 대만 이슈를 다룬 비교 후보입니다.`,
-          '같은 이슈 키워드와 국가별 관점 차이를 기준으로 연결했습니다.',
+          '실제 그래프 API 실패 시 표시하는 트럼프 대만 고정 목데이터입니다.',
         ],
         sharedKeywords: ['트럼프', '대만', '미중 갈등'],
         sharedEntities: ['트럼프', '대만', '중국', '미국'],
@@ -362,8 +364,8 @@ function createMockComparisonGraph(videoId, selectedVideoOverride = null) {
       weight: edgeWeights[index] || 0.68,
     })),
     connectionReasons: [
-      '같은 이슈 클러스터와 공유 키워드를 기준으로 국가별 비교 후보를 연결했습니다.',
-      '트럼프 대만 키워드에 맞춘 국가별 비교 후보를 연결했습니다.',
+      '테스트용 mock 데이터입니다. compare-on-click API 응답이 성공하면 실제 응답이 우선 표시됩니다.',
+      '트럼프 대만 키워드에 맞춘 국가별 비교 후보 3개씩을 연결했습니다.',
     ],
     countryPerspectives: [
       { countryCode: 'KR', summary: '한국 관점은 대만 해협 긴장과 한반도 안보 파장을 함께 봅니다.' },
@@ -460,10 +462,6 @@ function ComparisonVideoCard({ video, onClick }) {
       <div className="country-compare-page__video-body">
         <strong>{video.title}</strong>
         <p>{video.channelName}</p>
-        <div className="country-compare-page__video-meta">
-          <span>{formatViewCount(video.viewCount)}</span>
-          <span>{formatPublishedDate(video.publishedAt)}</span>
-        </div>
         <div className="country-compare-page__video-tags">
           <span>{video.language || '언어 정보 없음'}</span>
           <span>{video.analysisStatus || '분석 상태 없음'}</span>
@@ -814,7 +812,7 @@ function CountryCompare({ isLoggedIn, onAuthClick, accessToken }) {
     setIsHomeLoading(true)
     setIssueKeywords(fallbackKeywords)
     setSections(createMockComparisonHomeSections())
-    setErrorMessage('')
+    setErrorMessage('테스트용 mock 국가별 추천 영상을 표시합니다.')
     setIsHomeLoading(false)
 
     return undefined
@@ -2229,7 +2227,6 @@ function RecommendationVideoCard({ node, countryCode, onClick }) {
         <div className="comparison-graph-page__recommendation-copy">
           <strong>{node.title}</strong>
           <span>{node.channelName || `${country.name} News`}</span>
-          <em>{formatViewCount(node.viewCount)} · {formatPublishedDate(node.publishedAt, '게시일 정보 없음')}</em>
         </div>
         <span
           className="comparison-graph-page__recommendation-compare"
@@ -2283,37 +2280,10 @@ function SelectedVideoCard({ video }) {
         <div className="comparison-graph-page__recommendation-copy">
           <strong>{video?.title || '선택한 영상'}</strong>
           <span>{video?.channelName || `${country.name} News`}</span>
-          <em>{formatViewCount(video?.viewCount)} · {formatPublishedDate(video?.publishedAt, '게시일 정보 없음')}</em>
         </div>
       </button>
     </Html>
   )
-}
-
-function formatInsightKeywords(keywords, fallback = '키워드 정보 없음') {
-  const normalizedKeywords = Array.isArray(keywords)
-    ? keywords.map((keyword) => getKeywordText(keyword)).filter(Boolean)
-    : []
-
-  return normalizedKeywords.length ? normalizedKeywords.slice(0, 4).join(', ') : fallback
-}
-
-function sanitizeRecommendationReasons(reasons = []) {
-  return (Array.isArray(reasons) ? reasons : [])
-    .map((reason) => String(reason || '').trim())
-    .filter((reason) => reason && !/mock|목데이터|테스트용|API 실패/i.test(reason))
-}
-
-function sanitizeInsightText(text = '') {
-  const normalizedText = String(text || '').trim()
-
-  return normalizedText && !/mock|목데이터|테스트용|API 실패/i.test(normalizedText) ? normalizedText : ''
-}
-
-function formatSimilarityScore(score) {
-  const numericScore = Number(score)
-
-  return Number.isFinite(numericScore) && numericScore > 0 ? numericScore.toFixed(2) : ''
 }
 
 function createFallbackComparisonInsight({ selectedVideo, comparedVideo, relationEdge }) {
@@ -2798,7 +2768,6 @@ function ComparisonVideoModalCard({ video, title, relationEdge = null, graphData
       <div className="comparison-graph-page__compare-copy">
         <strong>{video?.title || '영상 제목 정보 없음'}</strong>
         <span>{video?.channelName || `${country.name} News`}</span>
-        <em>{formatViewCount(video?.viewCount)} · {formatPublishedDate(video?.publishedAt, '게시일 정보 없음')}</em>
       </div>
 
       <section className="comparison-graph-page__compare-keywords">
@@ -2922,8 +2891,7 @@ async function fetchVideoExpressionAnalysis(video, accessToken) {
 }
 
 function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }) {
-  const [comparisonInsight, setComparisonInsight] = useState(null)
-  const [comparisonInsightStatus, setComparisonInsightStatus] = useState('loading')
+  const [comparisonInsightResponse, setComparisonInsightResponse] = useState({ key: '', status: 'loading', insight: null })
   const [analysisVideos, setAnalysisVideos] = useState({ key: '', selected: null, compared: null })
 
   const relationEdge = findComparisonEdge(graphData, comparedVideo)
@@ -2937,6 +2905,22 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
   const displayGraphData = useMemo(() => (
     graphData ? { ...graphData, selectedVideo: selectedDisplayVideo } : graphData
   ), [graphData, selectedDisplayVideo])
+  const insightRequestKey = useMemo(() => JSON.stringify({
+    analysisKey,
+    selectedTargetId: selectedDisplayVideo?.targetId ?? '',
+    comparedTargetId: comparedDisplayVideo?.targetId ?? '',
+    selectedFocus: formatInsightKeywords(selectedDisplayVideo?.focusKeywords, ''),
+    comparedFocus: formatInsightKeywords(comparedDisplayVideo?.focusKeywords, ''),
+    selectedSummary: selectedDisplayVideo?.analysisSummary ?? '',
+    comparedSummary: comparedDisplayVideo?.analysisSummary ?? '',
+    relation: relationEdge?.id || `${relationEdge?.source || ''}:${relationEdge?.target || ''}:${relationEdge?.similarityScore || ''}`,
+  }), [analysisKey, comparedDisplayVideo, relationEdge, selectedDisplayVideo])
+  const comparisonInsight = comparisonInsightResponse.key === insightRequestKey
+    ? comparisonInsightResponse.insight
+    : null
+  const comparisonInsightStatus = comparisonInsightResponse.key === insightRequestKey
+    ? comparisonInsightResponse.status
+    : 'loading'
   const fallbackInsight = useMemo(() => (
     selectedDisplayVideo && comparedDisplayVideo
       ? createFallbackComparisonInsight({
@@ -3005,9 +2989,6 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
 
     let isCancelled = false
 
-    setComparisonInsight(null)
-    setComparisonInsightStatus('loading')
-
     requestComparisonInsight({
       selectedVideo: selectedDisplayVideo,
       comparedVideo: comparedDisplayVideo,
@@ -3018,29 +2999,24 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
       .then((nextInsight) => {
         if (!isCancelled && (nextInsight.summary || nextInsight.points.length || nextInsight.comparisonRows?.length || nextInsight.recommendationReason)) {
           if (nextInsight.llmUsed) {
-            setComparisonInsight(nextInsight)
-            setComparisonInsightStatus('success')
+            setComparisonInsightResponse({ key: insightRequestKey, status: 'success', insight: nextInsight })
           } else {
-            setComparisonInsight(null)
-            setComparisonInsightStatus('error')
+            setComparisonInsightResponse({ key: insightRequestKey, status: 'error', insight: null })
           }
         } else if (!isCancelled) {
-          setComparisonInsight(null)
-          setComparisonInsightStatus('error')
+          setComparisonInsightResponse({ key: insightRequestKey, status: 'error', insight: null })
         }
       })
-      .catch((error) => {
-        console.warn('[ComparisonGraph] LLM difference request failed:', error)
+      .catch(() => {
         if (!isCancelled) {
-          setComparisonInsight(null)
-          setComparisonInsightStatus('error')
+          setComparisonInsightResponse({ key: insightRequestKey, status: 'error', insight: null })
         }
       })
 
     return () => {
       isCancelled = true
     }
-  }, [accessToken, comparedDisplayVideo, displayGraphData, graphData?.isMock, graphData?.selectedVideo, relationEdge, selectedDisplayVideo])
+  }, [accessToken, comparedDisplayVideo, comparedVideo, displayGraphData, graphData?.selectedVideo, insightRequestKey, relationEdge, selectedDisplayVideo])
 
   if (!graphData?.selectedVideo || !comparedVideo) {
     return null
@@ -3159,7 +3135,13 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
       try {
         if (USE_COMPARISON_MOCK_DATA) {
           setGraphData(createMockComparisonGraph(videoId, cachedSelectedVideo))
-          setErrorMessage('')
+          setErrorMessage('테스트용 mock 비교 그래프를 표시합니다.')
+          return
+        }
+
+        if (cachedSelectedVideo?.analysisStatus === 'MOCK_READY') {
+          setGraphData(createMockComparisonGraph(videoId, cachedSelectedVideo))
+          setErrorMessage('테스트용 mock 비교 그래프를 표시합니다.')
           return
         }
 
@@ -3179,11 +3161,10 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
               : nextGraphData,
           )
         }
-      } catch (error) {
-        console.warn('[ComparisonGraph] graph API failed, fallback graph enabled:', error)
+      } catch {
         if (!isCancelled) {
           setGraphData(createMockComparisonGraph(videoId, cachedSelectedVideo))
-          setErrorMessage('')
+          setErrorMessage('비교 그래프 API가 아직 준비되지 않아 테스트용 mock 그래프를 표시합니다.')
         }
       } finally {
         if (!isCancelled) {
@@ -3237,7 +3218,7 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
 
         {!isLoading && errorMessage && !graphData?.isMock ? (
           <StatePanel
-            title={graphData?.isMock ? '비교 그래프 표시 중' : '그래프를 불러오지 못했습니다'}
+            title={graphData?.isMock ? 'Mock 그래프 표시 중' : '그래프를 불러오지 못했습니다'}
             message={errorMessage}
             tone={graphData?.isMock ? 'default' : 'error'}
           />
