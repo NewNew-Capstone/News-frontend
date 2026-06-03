@@ -339,18 +339,6 @@ function buildDetailHashUrl(youtubeVideoId) {
     : window.location.href
 }
 
-function pickYoutubeVideoId(...candidates) {
-  for (const candidate of candidates) {
-    const normalizedCandidate = normalizeYoutubeVideoId(candidate)
-
-    if (normalizedCandidate) {
-      return normalizedCandidate
-    }
-  }
-
-  return ''
-}
-
 function sleep(delay) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, delay)
@@ -1326,20 +1314,15 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     setIsOpposingAnalysisVisible(true)
     setIsOpposingAnalysisEvidenceOpen(false)
 
-    const opposingLookupVideoId = pickYoutubeVideoId(
-      videoDetail?.youtubeVideoId,
-      videoDetail?.youtubeVideoID,
-      videoDetail?.originalUrl,
-      videoDetail?.url,
-      videoDetail?.videoUrl,
-      videoDetail?.youtubeUrl,
-      analysisResult?.youtubeVideoId,
-      analysisResult?.youtube_video_id,
-      analysisResult?.originalUrl,
-      videoId,
-    )
+    const targetVideoId =
+      analysisTargetId ??
+      analysisResult?.targetId ??
+      videoDetail?.targetId ??
+      videoDetail?.youtubeVideoId ??
+      videoDetail?.youtubeId ??
+      videoId
 
-    if (!opposingLookupVideoId || opposingAnalysisResult || isOpposingAnalysisLoading) {
+    if (!targetVideoId || opposingAnalysisResult || isOpposingAnalysisLoading) {
       return
     }
 
@@ -1347,7 +1330,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
     setOpposingAnalysisErrorMessage('')
 
     try {
-      const nextOpposingVideo = await fetchOpposingIssueVideo(opposingLookupVideoId, accessToken)
+      const nextOpposingVideo = await fetchOpposingIssueVideo(targetVideoId, accessToken)
 
       if (!nextOpposingVideo?.youtubeVideoId) {
         throw new Error('다른 관점 영상 ID가 없어 분석 결과를 불러올 수 없습니다.')
