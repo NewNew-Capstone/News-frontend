@@ -191,6 +191,95 @@ function getKeywordText(keyword) {
   return keyword?.keywordText || keyword?.keyword_text || keyword?.keyword || keyword?.text || keyword?.name || ''
 }
 
+const COMPARISON_KEYWORD_KO_LABELS = {
+  trump: '트럼프',
+  taiwan: '대만',
+  'china pressure': '중국 압박',
+  'taiwan strait': '대만 해협',
+  alliance: '동맹',
+  'security risk': '안보 리스크',
+  'china policy': '중국 정책',
+  semiconductor: '반도체',
+  pressure: '압박',
+  risk: '위험',
+  warning: '경고',
+  burden: '부담',
+  concern: '우려',
+  uncertainty: '불확실성',
+  hardline: '강경 노선',
+  competition: '경쟁',
+  '特朗普': '트럼프',
+  '台湾': '대만',
+  '台灣': '대만',
+  '一个中国': '하나의 중국',
+  '一個中國': '하나의 중국',
+  '台湾问题': '대만 문제',
+  '台灣問題': '대만 문제',
+  '美国压力': '미국 압박',
+  '美國壓力': '미국 압박',
+  '中美关系': '미중 관계',
+  '中美關係': '미중 관계',
+  '台海局势': '대만 해협 정세',
+  '台海局勢': '대만 해협 정세',
+  '反制措施': '맞대응 조치',
+  '地区安全': '지역 안보',
+  '地區安全': '지역 안보',
+  '原则': '원칙',
+  '原則': '원칙',
+  '警告': '경고',
+  '反对': '반대',
+  '反對': '반대',
+  '施压': '압박',
+  '施壓': '압박',
+  '反制': '맞대응',
+  '紧张': '긴장',
+  '緊張': '긴장',
+  '风险': '위험',
+  '風險': '위험',
+  '应对': '대응',
+  '應對': '대응',
+  '稳定': '안정',
+  '穩定': '안정',
+}
+
+function translateComparisonKeywordText(keywordText, countryCode) {
+  const text = String(keywordText || '').trim()
+
+  if (!text || countryCode === 'KR') {
+    return text
+  }
+
+  const normalizedText = text.toLowerCase()
+
+  return COMPARISON_KEYWORD_KO_LABELS[text] || COMPARISON_KEYWORD_KO_LABELS[normalizedText] || text
+}
+
+function formatInsightKeywords(keywords, fallback = '키워드 정보 없음') {
+  const normalizedKeywords = Array.isArray(keywords)
+    ? keywords.map((keyword) => getKeywordText(keyword)).filter(Boolean)
+    : []
+
+  return normalizedKeywords.length ? normalizedKeywords.slice(0, 4).join(', ') : fallback
+}
+
+function sanitizeRecommendationReasons(reasons = []) {
+  return (Array.isArray(reasons) ? reasons : [])
+    .map((reason) => String(reason || '').trim())
+    .filter((reason) => reason && !/mock|목데이터|테스트용|API 실패/i.test(reason))
+}
+
+function sanitizeInsightText(text = '') {
+  const normalizedText = String(text || '').trim()
+
+  return normalizedText && !/mock|목데이터|테스트용|API 실패/i.test(normalizedText) ? normalizedText : ''
+}
+
+function formatSimilarityScore(score) {
+  const numericScore = Number(score)
+
+  return Number.isFinite(numericScore) && numericScore > 0 ? numericScore.toFixed(2) : ''
+}
+
 function formatFocusKeywordMeta(keyword) {
   const occurrenceCount = Number(keyword?.occurrenceCount ?? keyword?.occurrence_count)
   const sentenceCount = Number(keyword?.sentenceCount ?? keyword?.sentence_count)
@@ -349,6 +438,16 @@ function StatePanel({ title, message, tone = 'default' }) {
   )
 }
 
+function formatLanguageLabel(language) {
+  const normalizedLanguage = String(language || '').trim()
+
+  if (!normalizedLanguage) {
+    return '언어 정보 없음'
+  }
+
+  return normalizedLanguage.toLowerCase() === 'zh' ? 'ch' : normalizedLanguage
+}
+
 function ComparisonVideoCard({ video, onClick }) {
   const country = getCountryMeta(video.countryCode)
 
@@ -374,7 +473,7 @@ function ComparisonVideoCard({ video, onClick }) {
         <strong>{video.title}</strong>
         <p>{video.channelName}</p>
         <div className="country-compare-page__video-tags">
-          <span>{video.language || '언어 정보 없음'}</span>
+          <span>{formatLanguageLabel(video.language)}</span>
           <span>{video.analysisStatus || '분석 상태 없음'}</span>
         </div>
       </div>
@@ -2200,16 +2299,52 @@ function SelectedVideoCard({ video }) {
 function createFallbackComparisonInsight({ selectedVideo, comparedVideo, relationEdge }) {
   const selectedCountry = getCountryMeta(selectedVideo?.countryCode)
   const comparedCountry = getCountryMeta(comparedVideo?.countryCode)
-  const sharedKeywords = relationEdge?.keywords?.length ? relationEdge.keywords.join(', ') : '트럼프, 대만'
+  const sharedKeywords = formatInsightKeywords(relationEdge?.keywords, '트럼프, 대만')
+  const selectedFocus = formatInsightKeywords(selectedVideo?.focusKeywords, '기준 영상의 제목과 키워드')
+  const comparedFocus = formatInsightKeywords(comparedVideo?.focusKeywords, '비교 영상의 제목과 키워드')
+  const sanitizedReasons = sanitizeRecommendationReasons(relationEdge?.reasons)
+  const similarityScore = formatSimilarityScore(relationEdge?.similarityScore)
+  const issueReason = sanitizedReasons.find((reason) => reason.includes('이슈')) || sanitizedReasons[0]
+  const connectionReason = sanitizedReasons.join(' ') || '공유 키워드, 내용 유사도, 국가별 관점 차이를 기준으로 비교 대상으로 연결했습니다.'
+  const comparisonRows = [
+    {
+      label: '이슈 초점',
+      selected: selectedFocus,
+      compared: comparedFocus,
+      detail: `${selectedCountry.localName} 영상은 선택 영상의 문제의식에서 출발하고, ${comparedCountry.localName} 영상은 자국 관점에서 같은 이슈를 해석합니다.`,
+    },
+    {
+      label: '공유 근거',
+      selected: sharedKeywords,
+      compared: sharedKeywords,
+      detail: issueReason || '두 영상은 같은 이슈와 공유 키워드를 기준으로 비교 후보가 되었습니다.',
+    },
+    {
+      label: '내용 유사도',
+      selected: '기준 영상 내용',
+      compared: similarityScore ? `유사도 ${similarityScore}` : '내용 유사도 기준 비교',
+      detail: similarityScore
+        ? `제목, 키워드, 분석 정보를 함께 비교했을 때 내용 유사도는 약 ${similarityScore}입니다.`
+        : '제목과 키워드가 같은 이슈를 가리키는지 비교했습니다.',
+    },
+    {
+      label: '관점 차이',
+      selected: `${selectedCountry.localName} 관점`,
+      compared: `${comparedCountry.localName} 관점`,
+      detail: `${selectedCountry.localName} 영상과 ${comparedCountry.localName} 영상은 같은 사건을 다루지만, 강조하는 이해관계와 표현 톤이 다르게 나타납니다.`,
+    },
+  ]
 
   return {
-    summary: `${selectedCountry.localName} 영상은 "${selectedVideo?.title || '원본 영상'}"의 맥락을 중심으로 이슈를 설명하고, ${comparedCountry.localName} 영상은 "${comparedVideo?.title || '비교 영상'}" 관점에서 같은 이슈를 다룹니다. 두 영상은 ${sharedKeywords} 키워드를 공유하지만, 강조하는 국가적 이해관계와 표현 톤이 다릅니다.`,
+    summary: `${selectedCountry.localName} 영상은 "${selectedVideo?.title || '원본 영상'}"의 맥락을 중심으로 이슈를 설명하고, ${comparedCountry.localName} 영상은 "${comparedVideo?.title || '비교 영상'}" 관점에서 같은 이슈를 다룹니다. 두 영상은 ${sharedKeywords} 키워드를 공유하지만, 강조하는 이해관계와 표현 톤이 다릅니다.`,
+    comparisonRows,
     points: [
-      `${selectedCountry.localName} 영상의 초점: ${selectedVideo?.focusKeywords?.slice(0, 3).join(', ') || '선택 영상의 제목/키워드 맥락'}`,
-      `${comparedCountry.localName} 영상의 초점: ${comparedVideo?.focusKeywords?.slice(0, 3).join(', ') || '비교 영상의 제목/키워드 맥락'}`,
-      relationEdge?.reasons?.[0] || '두 영상은 같은 이슈를 서로 다른 국가 관점에서 설명합니다.',
+      `${selectedCountry.localName} 영상의 초점: ${selectedFocus}`,
+      `${comparedCountry.localName} 영상의 초점: ${comparedFocus}`,
+      `공유 키워드: ${sharedKeywords}`,
+      similarityScore ? `내용 유사도: ${similarityScore}` : '두 영상은 같은 이슈를 서로 다른 국가 관점에서 설명합니다.',
     ],
-    recommendationReason: relationEdge?.reasons?.join(' ') || '공유 키워드와 국가별 관점 차이를 기준으로 비교 대상으로 연결했습니다.',
+    recommendationReason: connectionReason,
   }
 }
 
@@ -2655,12 +2790,13 @@ function ComparisonVideoModalCard({ video, title, relationEdge = null, graphData
           {focusKeywords.length ? (
             <div className="comparison-graph-page__compare-keyword-list">
               {focusKeywords.map((keyword, index) => {
-                const keywordText = getKeywordText(keyword)
+                const rawKeywordText = getKeywordText(keyword)
+                const keywordText = translateComparisonKeywordText(rawKeywordText, video?.countryCode)
                 const keywordMeta = formatFocusKeywordMeta(keyword)
 
                 return (
                   <span
-                    key={`${video?.videoId || title}-focus-${keywordText}-${index}`}
+                    key={`${video?.videoId || title}-focus-${rawKeywordText}-${index}`}
                     className="comparison-graph-page__compare-keyword-chip comparison-graph-page__compare-keyword-chip--focus"
                   >
                     <strong>{keywordText}</strong>
@@ -2682,11 +2818,12 @@ function ComparisonVideoModalCard({ video, title, relationEdge = null, graphData
           {emotionKeywords.length ? (
             <div className="comparison-graph-page__compare-keyword-list">
               {emotionKeywords.map((keyword, index) => {
-                const keywordText = getKeywordText(keyword)
+                const rawKeywordText = getKeywordText(keyword)
+                const keywordText = translateComparisonKeywordText(rawKeywordText, video?.countryCode)
 
                 return (
                   <span
-                    key={`${video?.videoId || title}-emotion-${keywordText}-${index}`}
+                    key={`${video?.videoId || title}-emotion-${rawKeywordText}-${index}`}
                     className="comparison-graph-page__compare-keyword-chip"
                   >
                     {keywordText}
@@ -2718,12 +2855,24 @@ function mergeVideoAnalysis(video, analysisTarget, analysisResult) {
     analysisUrl: analysisTarget?.analysisUrl || video.analysisUrl,
     focusKeywords: focusKeywords.length ? focusKeywords : video.focusKeywords,
     emotionKeywords: emotionKeywords.length ? emotionKeywords : video.emotionKeywords,
+    analysisSummary: analysisResult?.summaryText || video.analysisSummary || '',
+    perspectiveSummary: analysisResult?.perspectiveSummary || video.perspectiveSummary || '',
+    evidenceSummary: analysisResult?.evidenceSummary || video.evidenceSummary || '',
+    scoreReasonSummary: analysisResult?.scoreReasonSummary || video.scoreReasonSummary || '',
+    toneLabel: analysisResult?.toneLabel || video.toneLabel || '',
+    factRatio: analysisResult?.factRatio ?? video.factRatio ?? null,
+    neutralityScore: analysisResult?.neutralityScore ?? video.neutralityScore ?? null,
+    headlineBodyGapLabel: analysisResult?.headlineBodyGapLabel || video.headlineBodyGapLabel || '',
   }
 }
 
 async function fetchVideoExpressionAnalysis(video, accessToken) {
   if (!video?.videoId && !video?.targetId) {
     return video
+  }
+
+  if (!accessToken) {
+    return mergeVideoAnalysis(video, null, null)
   }
 
   let analysisTarget = null
@@ -2752,7 +2901,7 @@ async function fetchVideoExpressionAnalysis(video, accessToken) {
 }
 
 function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }) {
-  const [comparisonInsight, setComparisonInsight] = useState(null)
+  const [comparisonInsightResponse, setComparisonInsightResponse] = useState({ key: '', status: 'loading', insight: null })
   const [analysisVideos, setAnalysisVideos] = useState({ key: '', selected: null, compared: null })
 
   const relationEdge = findComparisonEdge(graphData, comparedVideo)
@@ -2766,6 +2915,22 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
   const displayGraphData = useMemo(() => (
     graphData ? { ...graphData, selectedVideo: selectedDisplayVideo } : graphData
   ), [graphData, selectedDisplayVideo])
+  const insightRequestKey = useMemo(() => JSON.stringify({
+    analysisKey,
+    selectedTargetId: selectedDisplayVideo?.targetId ?? '',
+    comparedTargetId: comparedDisplayVideo?.targetId ?? '',
+    selectedFocus: formatInsightKeywords(selectedDisplayVideo?.focusKeywords, ''),
+    comparedFocus: formatInsightKeywords(comparedDisplayVideo?.focusKeywords, ''),
+    selectedSummary: selectedDisplayVideo?.analysisSummary ?? '',
+    comparedSummary: comparedDisplayVideo?.analysisSummary ?? '',
+    relation: relationEdge?.id || `${relationEdge?.source || ''}:${relationEdge?.target || ''}:${relationEdge?.similarityScore || ''}`,
+  }), [analysisKey, comparedDisplayVideo, relationEdge, selectedDisplayVideo])
+  const comparisonInsight = comparisonInsightResponse.key === insightRequestKey
+    ? comparisonInsightResponse.insight
+    : null
+  const comparisonInsightStatus = comparisonInsightResponse.key === insightRequestKey
+    ? comparisonInsightResponse.status
+    : 'loading'
   const fallbackInsight = useMemo(() => (
     selectedDisplayVideo && comparedDisplayVideo
       ? createFallbackComparisonInsight({
@@ -2775,10 +2940,38 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
         })
       : null
   ), [comparedDisplayVideo, relationEdge, selectedDisplayVideo])
-  const displayedInsight = comparisonInsight || fallbackInsight
+  const displayedInsight = useMemo(() => {
+    if (comparisonInsightStatus === 'loading') {
+      return null
+    }
+
+    if (!comparisonInsight) {
+      return fallbackInsight
+    }
+
+    const sanitizedSummary = sanitizeInsightText(comparisonInsight.summary)
+    const sanitizedPoints = sanitizeRecommendationReasons(comparisonInsight.points)
+
+    return {
+      ...fallbackInsight,
+      ...comparisonInsight,
+      summary: sanitizedSummary || fallbackInsight?.summary || '',
+      points: sanitizedPoints.length ? sanitizedPoints : fallbackInsight?.points || [],
+      comparisonRows: comparisonInsight.comparisonRows?.length
+        ? comparisonInsight.comparisonRows
+        : fallbackInsight?.comparisonRows || [],
+      recommendationReason: sanitizeInsightText(comparisonInsight.recommendationReason) || fallbackInsight?.recommendationReason || '',
+    }
+  }, [comparisonInsight, comparisonInsightStatus, fallbackInsight])
+  const isInsightLoading = comparisonInsightStatus === 'loading'
+  const insightBadgeText = isInsightLoading
+    ? '요약 중'
+    : comparisonInsight?.llmUsed
+      ? 'LLM 응답'
+      : '기본 요약'
 
   useEffect(() => {
-    if (!graphData?.selectedVideo || !comparedVideo || graphData.isMock) {
+    if (!graphData?.selectedVideo || !comparedVideo) {
       return undefined
     }
 
@@ -2797,7 +2990,7 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
     return () => {
       isCancelled = true
     }
-  }, [accessToken, analysisKey, comparedVideo, graphData?.isMock, graphData?.selectedVideo])
+  }, [accessToken, analysisKey, comparedVideo, graphData?.selectedVideo])
 
   useEffect(() => {
     if (!graphData?.selectedVideo || !comparedVideo) {
@@ -2806,32 +2999,34 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
 
     let isCancelled = false
 
-    if (graphData.isMock) {
-      return undefined
-    }
-
     requestComparisonInsight({
-      selectedVideo: graphData.selectedVideo,
-      comparedVideo,
+      selectedVideo: selectedDisplayVideo,
+      comparedVideo: comparedDisplayVideo,
       relationEdge,
-      graphData,
+      graphData: displayGraphData,
       accessToken,
     })
       .then((nextInsight) => {
-        if (!isCancelled && (nextInsight.summary || nextInsight.points.length || nextInsight.recommendationReason)) {
-          setComparisonInsight(nextInsight)
+        if (!isCancelled && (nextInsight.summary || nextInsight.points.length || nextInsight.comparisonRows?.length || nextInsight.recommendationReason)) {
+          if (nextInsight.llmUsed) {
+            setComparisonInsightResponse({ key: insightRequestKey, status: 'success', insight: nextInsight })
+          } else {
+            setComparisonInsightResponse({ key: insightRequestKey, status: 'error', insight: null })
+          }
+        } else if (!isCancelled) {
+          setComparisonInsightResponse({ key: insightRequestKey, status: 'error', insight: null })
         }
       })
       .catch(() => {
         if (!isCancelled) {
-          setComparisonInsight(null)
+          setComparisonInsightResponse({ key: insightRequestKey, status: 'error', insight: null })
         }
       })
 
     return () => {
       isCancelled = true
     }
-  }, [accessToken, comparedVideo, graphData, relationEdge])
+  }, [accessToken, comparedDisplayVideo, comparedVideo, displayGraphData, graphData?.selectedVideo, insightRequestKey, relationEdge, selectedDisplayVideo])
 
   if (!graphData?.selectedVideo || !comparedVideo) {
     return null
@@ -2878,9 +3073,40 @@ function ComparisonVideoModal({ graphData, comparedVideo, accessToken, onClose }
         <section className="comparison-graph-page__compare-difference">
           <div className="comparison-graph-page__compare-difference-head">
             <h3>LLM 핵심 차이 요약</h3>
-            {comparisonInsight ? <span>LLM 응답</span> : <span>기본 요약</span>}
+            <span>{insightBadgeText}</span>
           </div>
-          <p>{displayedInsight?.summary || '두 영상이 같은 이슈를 서로 다른 국가 관점에서 다루고 있습니다.'}</p>
+          {isInsightLoading ? (
+            <div className="comparison-graph-page__compare-loading" role="status" aria-live="polite">
+              <strong>내용 요약 중입니다.</strong>
+              <p>두 영상의 제목, 핵심 표현, 공유 키워드, 연결 근거를 바탕으로 차이점을 정리하고 있습니다.</p>
+            </div>
+          ) : (
+            <p>{displayedInsight?.summary || '두 영상이 같은 이슈를 서로 다른 국가 관점에서 다루고 있습니다.'}</p>
+          )}
+          {displayedInsight?.comparisonRows?.length ? (
+            <div className="comparison-graph-page__compare-table-wrap">
+              <table className="comparison-graph-page__compare-table">
+                <thead>
+                  <tr>
+                    <th>비교 항목</th>
+                    <th>원본 영상</th>
+                    <th>비교 영상</th>
+                    <th>차이점</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedInsight.comparisonRows.slice(0, 4).map((row, index) => (
+                    <tr key={`comparison-row-${row.label || row.category || index}`}>
+                      <td>{row.label || row.category || row.topic || '비교 항목'}</td>
+                      <td>{row.selected || row.source || row.original || '원본 영상 기준'}</td>
+                      <td>{row.compared || row.target || row.comparison || '비교 영상 기준'}</td>
+                      <td>{row.detail || row.difference || row.summary || '두 영상의 강조점이 다릅니다.'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
           {displayedInsight?.points?.length ? (
             <ul>
               {displayedInsight.points.slice(0, 4).map((point, index) => (
@@ -2991,7 +3217,7 @@ export function ComparisonGraphPage({ isLoggedIn, onAuthClick, accessToken, vide
               <span className={`country-compare-page__country-badge country-compare-page__country-badge--${country.tone}`}>
                 {country.localName}
               </span>
-              <span>{selectedVideo.language || '언어 정보 없음'}</span>
+              <span>{formatLanguageLabel(selectedVideo.language)}</span>
             </div>
           ) : null}
         </div>

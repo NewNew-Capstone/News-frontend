@@ -635,7 +635,7 @@ async function pollAnalysisResult(targetId, accessToken = '') {
     throw new Error(getAnalysisPendingMessage())
   }
 
-  throw new Error('영상 분석 결과를 불러오지 못했습니다.')
+  throw new Error('영상 캐치 결과를 불러오지 못했습니다.')
 }
 
 function hasKeywordItems(keywords) {
@@ -755,7 +755,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const opposingAnalysisToneLabel =
     opposingAnalysisResult?.opinionGap !== null && opposingAnalysisResult?.opinionGap !== undefined
       ? `이 영상과 ${formatMetricPercent(opposingAnalysisResult.opinionGap)} 다른 시각`
-      : analysisResult?.opposingToneLabel || '반대 관점'
+      : String(analysisResult?.opposingToneLabel || '다른 관점').replace('반대 관점', '다른 관점')
   const opposingAnalysisSummaryText =
     opposingAnalysisResult?.summaryText ||
     '다른 관점 영상 요약이 아직 생성되지 않았습니다.'
@@ -790,7 +790,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
   const opposingScoreReasonText =
     opposingAnalysisResult?.scoreReasonSummary ||
     opposingAnalysisResult?.scoreEvidence ||
-    '반대 영상의 점수 근거가 제공되지 않았습니다.'
+    '다른 관점 영상의 점수 근거가 제공되지 않았습니다.'
   const opposingScoreEvidenceText =
     buildPipelineEvidenceText(
       opposingAnalysisResult,
@@ -1065,7 +1065,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       } catch (error) {
         if (!isCancelled && !isAnalysisMissingError(error)) {
           setAnalysisErrorMessage(
-            error instanceof Error ? error.message : '기존 분석 결과를 불러오지 못했습니다.',
+            error instanceof Error ? error.message : '기존 캐치 결과를 불러오지 못했습니다.',
           )
         }
       } finally {
@@ -1333,7 +1333,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       const nextOpposingVideo = await fetchOpposingIssueVideo(targetVideoId, accessToken)
 
       if (!nextOpposingVideo?.youtubeVideoId) {
-        throw new Error('다른 관점 영상 ID가 없어 분석 결과를 불러올 수 없습니다.')
+        throw new Error('다른 관점 영상 ID가 없어 캐치 결과를 불러올 수 없습니다.')
       }
 
       let pipelineAnalysis = null
@@ -1362,7 +1362,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       }
 
       if (!pipelineAnalysis) {
-        throw new Error('다른 관점 영상 분석 결과를 불러오지 못했습니다.')
+        throw new Error('다른 관점 영상 캐치 결과를 불러오지 못했습니다.')
       }
 
       const enrichedOpposingAnalysis = buildOpposingAnalysisFromVideo(
@@ -1387,7 +1387,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       setOpposingAnalysisErrorMessage(
         error instanceof Error
           ? error.message
-          : '반대 영상 분석 결과를 불러오지 못했습니다.',
+          : '다른 관점 영상 캐치 결과를 불러오지 못했습니다.',
       )
     } finally {
       setIsOpposingAnalysisLoading(false)
@@ -1520,7 +1520,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
         />
 
         <section className="video-summary-detail-page__intro">
-          <h1>영상의 관점을 비교해 읽는 분석 리포트</h1>
+          <h1>영상의 관점을 캐치하는 리포트</h1>
         </section>
 
         <section className="video-summary-detail-page__panel">
@@ -1539,7 +1539,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
               }`}
             >
               <header className="video-summary-detail-page__section-header">
-                <h2>{isAnalysisView ? '영상 분석 결과' : videoDetail.channelName}</h2>
+                <h2>{isAnalysisView ? '영상 캐치 리포트' : videoDetail.channelName}</h2>
 
                 <div className="video-summary-detail-page__header-actions">
                   <button
@@ -1694,7 +1694,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                       >
                         <span className="video-summary-detail-page__analysis-evidence-copy">
                           <span>DETAIL EVIDENCE</span>
-                          <strong>분석 근거 자세히 보기</strong>
+                          <strong>캐치 근거 자세히 보기</strong>
                           <small>총점 산출 방식, 의견성·감정성 지표와 감정 키워드를 확인합니다.</small>
                         </span>
                         <span className="video-summary-detail-page__analysis-evidence-meta">
@@ -1883,7 +1883,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
                     <div className="video-summary-detail-page__analysis-report video-summary-detail-page__analysis-report--opposing">
                       {isOpposingAnalysisLoading ? (
-                        <p className="video-summary-detail-page__status">반대 영상 분석 결과를 불러오는 중입니다.</p>
+                        <p className="video-summary-detail-page__status">다른 관점 영상 캐치 결과를 불러오는 중입니다.</p>
                       ) : null}
 
                       {opposingAnalysisErrorMessage ? (
@@ -1951,7 +1951,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                         >
                           <span className="video-summary-detail-page__analysis-evidence-copy">
                             <span>DETAIL EVIDENCE</span>
-                            <strong>다른 관점 영상 분석 근거 자세히 보기</strong>
+                            <strong>다른 관점 영상 캐치 근거 자세히 보기</strong>
                             <small>총점 산출 방식, 의견성·감정성 지표와 감정 키워드를 확인합니다.</small>
                           </span>
                           <span className="video-summary-detail-page__analysis-evidence-meta">
@@ -2162,7 +2162,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                       disabled={isAnalysisLoading}
                     >
                       <AnalysisIcon />
-                      <span>{isAnalysisLoading ? '분석 중' : '영상 분석하기'}</span>
+                      <span>{isAnalysisLoading ? '캐치 중' : '관점 캐치하기'}</span>
                     </button>
                   </div>
 
@@ -2179,7 +2179,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
                   <section className="video-summary-detail-page__summary-card">
                     <header className="video-summary-detail-page__summary-header">
-                      <h3>{analysisResult ? '영상 분석 결과' : '영상 설명'}</h3>
+                      <h3>{analysisResult ? '영상 캐치 결과' : '영상 설명'}</h3>
                       <span>
                         {analysisResult
                           ? 'AI 분석 완료'
@@ -2460,7 +2460,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
 
               <div className="video-summary-detail-page__analysis-badge">
                 <AnalysisIcon />
-                <span id="video-analysis-title">관점 분석 시작</span>
+                <span id="video-analysis-title">관점 캐치</span>
               </div>
 
               <p className="video-summary-detail-page__analysis-message">
@@ -2482,7 +2482,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                   className="video-summary-detail-page__analysis-action video-summary-detail-page__analysis-action--primary"
                   onClick={handleConfirmAnalysis}
                 >
-                  분석 시작
+                  캐치 시작
                 </button>
               </div>
             </div>
