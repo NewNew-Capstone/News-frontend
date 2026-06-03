@@ -197,12 +197,40 @@ function buildPipelineEvidenceText(result, fallbackText = '') {
     return fallbackText
   }
 
-  const opinionPercent = clampPercentage(result.opinionScore)
-  const emotionExpressionCount = Number(result.emotionExpressionCount)
-  const emotionSentenceCount = Number(result.emotionSentenceCount)
-  const factRatio = clampPercentage(result.factRatio)
-  const gapScore = result.headlineBodyGapScore
+  const rawOpinionScore = pickFirst(result, ['opinionScore', 'opinion_score'], null)
+  const rawEmotionExpressionCount = pickFirst(result, [
+    'emotionExpressionCount',
+    'emotion_expression_count',
+    'emotion_count',
+    'emotionCount',
+    'emotionSpanCount',
+    'emotion_span_count',
+    'emotionalExpressionCount',
+    'emotional_expression_count',
+    'emotionalSpanCount',
+    'emotional_span_count',
+  ], null)
+  const rawEmotionSentenceCount = pickFirst(result, [
+    'emotionSentenceCount',
+    'emotion_sentence_count',
+    'emotionDetectedSentenceCount',
+    'emotion_detected_sentence_count',
+    'emotionalSentenceCount',
+    'emotional_sentence_count',
+    'emotionalDetectedSentenceCount',
+    'emotional_detected_sentence_count',
+  ], null)
+  const rawFactRatio = pickFirst(result, ['factRatio', 'fact_ratio'], null)
+  const gapScore = pickFirst(result, ['headlineBodyGapScore', 'headline_body_gap_score'], null)
+  const opinionPercent = clampPercentage(Number(rawOpinionScore))
+  const emotionExpressionCount = Number(rawEmotionExpressionCount)
+  const emotionSentenceCount = Number(rawEmotionSentenceCount)
+  const factRatio = clampPercentage(Number(rawFactRatio))
   const canUsePipelineFormat =
+    rawOpinionScore !== null &&
+    rawEmotionExpressionCount !== null &&
+    rawEmotionSentenceCount !== null &&
+    rawFactRatio !== null &&
     opinionPercent !== null &&
     Number.isFinite(emotionExpressionCount) &&
     Number.isFinite(emotionSentenceCount) &&

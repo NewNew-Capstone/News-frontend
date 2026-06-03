@@ -440,12 +440,26 @@ function normalizeAnalysisResult(source) {
     opinionScore: normalizeAnalysisScore(responseBody.opinion_score ?? responseBody.opinionScore),
     emotionScore: normalizeAnalysisScore(responseBody.emotion_score ?? responseBody.emotionScore),
     emotionExpressionCount: normalizeAnalysisScore(
-      responseBody.emotion_expression_count ?? responseBody.emotionExpressionCount ?? responseBody.emotion_count,
+      responseBody.emotion_expression_count ??
+        responseBody.emotionExpressionCount ??
+        responseBody.emotion_count ??
+        responseBody.emotionCount ??
+        responseBody.emotion_span_count ??
+        responseBody.emotionSpanCount ??
+        responseBody.emotional_expression_count ??
+        responseBody.emotionalExpressionCount ??
+        responseBody.emotional_span_count ??
+        responseBody.emotionalSpanCount,
     ),
     emotionSentenceCount: normalizeAnalysisScore(
       responseBody.emotion_sentence_count ??
         responseBody.emotionSentenceCount ??
-        responseBody.emotion_detected_sentence_count,
+        responseBody.emotion_detected_sentence_count ??
+        responseBody.emotionDetectedSentenceCount ??
+        responseBody.emotional_sentence_count ??
+        responseBody.emotionalSentenceCount ??
+        responseBody.emotional_detected_sentence_count ??
+        responseBody.emotionalDetectedSentenceCount,
     ),
     anonymousSourceScore: normalizeAnalysisScore(
       responseBody.anonymous_source_score ?? responseBody.anonymousSourceScore,

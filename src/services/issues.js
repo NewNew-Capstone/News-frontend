@@ -252,10 +252,26 @@ function normalizeOpposingVideo(body = {}) {
     factRatio: normalizeIssueScore(body.factRatio ?? body.fact_ratio),
     headlineBodyGapScore: normalizeIssueScore(body.headlineBodyGapScore ?? body.headline_body_gap_score),
     emotionExpressionCount: normalizeIssueScore(
-      body.emotionExpressionCount ?? body.emotion_expression_count ?? body.emotion_count,
+      body.emotionExpressionCount ??
+        body.emotion_expression_count ??
+        body.emotion_count ??
+        body.emotionCount ??
+        body.emotionSpanCount ??
+        body.emotion_span_count ??
+        body.emotionalExpressionCount ??
+        body.emotional_expression_count ??
+        body.emotionalSpanCount ??
+        body.emotional_span_count,
     ),
     emotionSentenceCount: normalizeIssueScore(
-      body.emotionSentenceCount ?? body.emotion_sentence_count ?? body.emotion_detected_sentence_count,
+      body.emotionSentenceCount ??
+        body.emotion_sentence_count ??
+        body.emotionDetectedSentenceCount ??
+        body.emotion_detected_sentence_count ??
+        body.emotionalSentenceCount ??
+        body.emotional_sentence_count ??
+        body.emotionalDetectedSentenceCount ??
+        body.emotional_detected_sentence_count,
     ),
     overallBiasScore: normalizeIssueScore(body.overallBiasScore ?? body.overall_bias_score),
     opinionGap: normalizeIssueScore(body.opinionGap ?? body.opinion_gap),
