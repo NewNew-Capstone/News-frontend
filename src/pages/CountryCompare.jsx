@@ -215,6 +215,69 @@ function getKeywordText(keyword) {
   return keyword?.keywordText || keyword?.keyword_text || keyword?.keyword || keyword?.text || keyword?.name || ''
 }
 
+const COMPARISON_KEYWORD_KO_LABELS = {
+  trump: '트럼프',
+  taiwan: '대만',
+  'china pressure': '중국 압박',
+  'taiwan strait': '대만 해협',
+  alliance: '동맹',
+  'security risk': '안보 리스크',
+  'china policy': '중국 정책',
+  semiconductor: '반도체',
+  pressure: '압박',
+  risk: '위험',
+  warning: '경고',
+  burden: '부담',
+  concern: '우려',
+  uncertainty: '불확실성',
+  hardline: '강경 노선',
+  competition: '경쟁',
+  '特朗普': '트럼프',
+  '台湾': '대만',
+  '台灣': '대만',
+  '一个中国': '하나의 중국',
+  '一個中國': '하나의 중국',
+  '台湾问题': '대만 문제',
+  '台灣問題': '대만 문제',
+  '美国压力': '미국 압박',
+  '美國壓力': '미국 압박',
+  '中美关系': '미중 관계',
+  '中美關係': '미중 관계',
+  '台海局势': '대만 해협 정세',
+  '台海局勢': '대만 해협 정세',
+  '反制措施': '맞대응 조치',
+  '地区安全': '지역 안보',
+  '地區安全': '지역 안보',
+  '原则': '원칙',
+  '原則': '원칙',
+  '警告': '경고',
+  '反对': '반대',
+  '反對': '반대',
+  '施压': '압박',
+  '施壓': '압박',
+  '反制': '맞대응',
+  '紧张': '긴장',
+  '緊張': '긴장',
+  '风险': '위험',
+  '風險': '위험',
+  '应对': '대응',
+  '應對': '대응',
+  '稳定': '안정',
+  '穩定': '안정',
+}
+
+function translateComparisonKeywordText(keywordText, countryCode) {
+  const text = String(keywordText || '').trim()
+
+  if (!text || countryCode === 'KR') {
+    return text
+  }
+
+  const normalizedText = text.toLowerCase()
+
+  return COMPARISON_KEYWORD_KO_LABELS[text] || COMPARISON_KEYWORD_KO_LABELS[normalizedText] || text
+}
+
 function formatFocusKeywordMeta(keyword) {
   const occurrenceCount = Number(keyword?.occurrenceCount ?? keyword?.occurrence_count)
   const sentenceCount = Number(keyword?.sentenceCount ?? keyword?.sentence_count)
@@ -2748,12 +2811,13 @@ function ComparisonVideoModalCard({ video, title, relationEdge = null, graphData
           {focusKeywords.length ? (
             <div className="comparison-graph-page__compare-keyword-list">
               {focusKeywords.map((keyword, index) => {
-                const keywordText = getKeywordText(keyword)
+                const rawKeywordText = getKeywordText(keyword)
+                const keywordText = translateComparisonKeywordText(rawKeywordText, video?.countryCode)
                 const keywordMeta = formatFocusKeywordMeta(keyword)
 
                 return (
                   <span
-                    key={`${video?.videoId || title}-focus-${keywordText}-${index}`}
+                    key={`${video?.videoId || title}-focus-${rawKeywordText}-${index}`}
                     className="comparison-graph-page__compare-keyword-chip comparison-graph-page__compare-keyword-chip--focus"
                   >
                     <strong>{keywordText}</strong>
@@ -2775,11 +2839,12 @@ function ComparisonVideoModalCard({ video, title, relationEdge = null, graphData
           {emotionKeywords.length ? (
             <div className="comparison-graph-page__compare-keyword-list">
               {emotionKeywords.map((keyword, index) => {
-                const keywordText = getKeywordText(keyword)
+                const rawKeywordText = getKeywordText(keyword)
+                const keywordText = translateComparisonKeywordText(rawKeywordText, video?.countryCode)
 
                 return (
                   <span
-                    key={`${video?.videoId || title}-emotion-${keywordText}-${index}`}
+                    key={`${video?.videoId || title}-emotion-${rawKeywordText}-${index}`}
                     className="comparison-graph-page__compare-keyword-chip"
                   >
                     {keywordText}
