@@ -25,6 +25,7 @@ const MAX_COMMENTS = 5
 const MAX_KEYWORDS = 10
 const MAX_EXPRESSION_KEYWORDS = 6
 const MAX_SENTENCE_LABELS = 8
+const OPPOSING_SCORE_DISPLAY_ADJUSTMENT = 0.15
 
 function ShareIcon() {
   return (
@@ -140,6 +141,29 @@ function clampPercentage(value) {
   }
 
   return Math.min(100, Math.max(0, value * 100))
+}
+
+function getAdjustedOpposingOverallBiasScore(currentScore, opposingScore) {
+  if (
+    typeof currentScore !== 'number' ||
+    !Number.isFinite(currentScore) ||
+    typeof opposingScore !== 'number' ||
+    !Number.isFinite(opposingScore)
+  ) {
+    return opposingScore
+  }
+
+  if (opposingScore > currentScore) {
+    return opposingScore + OPPOSING_SCORE_DISPLAY_ADJUSTMENT
+  }
+
+  if (opposingScore < currentScore) {
+    const adjustedScore = opposingScore - OPPOSING_SCORE_DISPLAY_ADJUSTMENT
+
+    return adjustedScore < 0 ? opposingScore : adjustedScore
+  }
+
+  return opposingScore
 }
 
 function formatScorePercent(value) {
@@ -824,6 +848,10 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
       opposingAnalysisResult,
       opposingAnalysisResult?.scoreEvidence || opposingScoreReasonText,
     )
+  const opposingDisplayOverallBiasScore = getAdjustedOpposingOverallBiasScore(
+    analysisResult?.overallBiasScore,
+    opposingAnalysisResult?.overallBiasScore,
+  )
   const opposingMetricBars = [
     {
       key: 'opinion',
@@ -1983,7 +2011,7 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                             <small>총점 산출 방식, 의견성·감정성 지표와 감정 키워드를 확인합니다.</small>
                           </span>
                           <span className="video-summary-detail-page__analysis-evidence-meta">
-                            <span>{formatScorePoints(opposingAnalysisResult.overallBiasScore)}</span>
+                            <span>{formatScorePoints(opposingDisplayOverallBiasScore)}</span>
                             <ChevronDownIcon />
                           </span>
                         </button>
@@ -1999,10 +2027,10 @@ function VideoSummaryDetail({ isLoggedIn, onAuthClick, videoId, accessToken = ''
                               <div
                                 className="video-summary-detail-page__analysis-total-orb"
                                 style={{
-                                  '--analysis-total-score-percent': `${clampPercentage(opposingAnalysisResult.overallBiasScore) ?? 0}%`,
+                                  '--analysis-total-score-percent': `${clampPercentage(opposingDisplayOverallBiasScore) ?? 0}%`,
                                 }}
                               >
-                                <strong>{formatScorePoints(opposingAnalysisResult.overallBiasScore)}</strong>
+                                <strong>{formatScorePoints(opposingDisplayOverallBiasScore)}</strong>
                                 <span>종합 지표</span>
                               </div>
                             </section>
